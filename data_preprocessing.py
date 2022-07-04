@@ -36,6 +36,8 @@ raw_sentences = []
 # List of Pytorch Geometric syntax graphs
 syntax_graphs = []
 
+device =  torch.device('cpu')
+
 def DepTreeToPytorchGeom(tree):
 
     # Get data of root node
