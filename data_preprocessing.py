@@ -26,7 +26,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "2" # export NUMEXPR_NUM_THREADS=1
 
 PID = os.getpid()
 PGID = os.getpgid(PID)
-print(f"PID: {PID}, PGID: {PGID}")
+print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
 data_path = "./data/original/ud/"
 # Set of syntactic dependency tags
