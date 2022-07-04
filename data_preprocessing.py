@@ -17,6 +17,16 @@ import os
 import glob
 import pickle
 
+# Select number of threads to use
+os.environ["OMP_NUM_THREADS"] = "2" # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = "2" # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = "2" # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "2" # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = "2" # export NUMEXPR_NUM_THREADS=1
+
+PID = os.getpid()
+PGID = os.getpgid(PID)
+print(f"PID: {PID}, PGID: {PGID}")
 
 data_path = "./data/original/ud/"
 # Set of syntactic dependency tags
