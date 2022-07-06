@@ -1,0 +1,2 @@
+train_model;epochs;batch_size;learning_rate;saved_model_path;data_path
+False;3;128;5e-5;./trained_models/bert-base-uncased_E2_batches128_LR5e-05_SL140;./data/original/ud/
