@@ -28,7 +28,7 @@ def configureParameters(parameters):
         # Data path
         data_path = parameters["data_path"][0]
         # Train model
-        if(str(parameters["train_model"]) == "True" or str(parameters["train_model"]) == "1"):
+        if(parameters["train_model"][0] == "True" or str(parameters["train_model"][0]) == "1"):
             train_model = True
         else:
             train_model = False
