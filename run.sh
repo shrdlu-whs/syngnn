@@ -1,6 +1,7 @@
 #!/bin/bash
 
 source ~/cdaniel/venv_syntrans/bin/activate
+
 if [ $1 == "mlm" ];
 then
     rm ./temp/syntrans_masked.py

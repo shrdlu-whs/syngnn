@@ -23,7 +23,7 @@ def configureParameters(parameters):
             sequence_length = int(transformer_name.split("_")[-1].replace("SL",""))
         else:
             tokenizer = saved_model_path
-            sequence_length = 133
+            sequence_length = 136
         
         # Data path
         data_path = parameters["data_path"][0]
