@@ -101,11 +101,7 @@ skip_files = []
 files = glob.iglob(data_path + '**/en_gum-ud-dev.txt', recursive=True)
 files = [f for f in files if all(sf not in f for sf in skip_files)]
 
-mode = "TEST"
-
-# load tagger
-tagger = SequenceTagger.load("flair/ner-english-ontonotes-large")
-print(tagger.label_dictionary.get_items())
+mode = "CREATE"
 
 if(mode == "CREATE"):
     for ud_file in files:
