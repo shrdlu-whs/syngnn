@@ -11,7 +11,7 @@ import re
 import torch
 
 # Export env vars to limit number of threads to use
-num_threads = "10"
+num_threads = "5"
 os.environ["OMP_NUM_THREADS"] = num_threads 
 os.environ["OPENBLAS_NUM_THREADS"] = num_threads
 os.environ["MKL_NUM_THREADS"] = num_threads 

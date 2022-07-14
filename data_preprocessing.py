@@ -18,11 +18,15 @@ import glob
 import pickle
 
 # Select number of threads to use
-os.environ["OMP_NUM_THREADS"] = "2" # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"] = "2" # export OPENBLAS_NUM_THREADS=1
-os.environ["MKL_NUM_THREADS"] = "2" # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "2" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "2" # export NUMEXPR_NUM_THREADS=1
+num_threads = "2"
+os.environ["OMP_NUM_THREADS"] = num_threads # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = num_threads # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = num_threads # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = num_threads # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = num_threads # export NUMEXPR_NUM_THREADS=1
+
+# Limit no. of threads used by Pytorch
+torch.set_num_threads = int(num_threads)
 
 PID = os.getpid()
 PGID = os.getpgid(PID)
@@ -116,7 +120,7 @@ def SavePyGeomGraphImage(data, filename):
 oh_encoder_dependencies = preprocessing.OneHotEncoder()
 oh_encoder_dependencies.fit(np.array(dependency_tags).reshape(-1,1))
 
-for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
+for ud_file in glob.iglob(data_path + '**/en_gum-ud-dev.conllu', recursive=True):
 
   ud_file = os.path.abspath(ud_file)
   filename = os.path.basename(ud_file)
@@ -155,10 +159,10 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     data = Data(edge_index=edge_index, x=x)
     syntax_graphs.append(data)
 
-    if(idx<=4):
+    #if(idx<=4):
       # Save graph image
-      filename = filename.split(".")[0]
-      SavePyGeomGraphImage(data, filename)
+      #filename = filename.split(".")[0]
+      #SavePyGeomGraphImage(data, filename)
 
   # Save list of Pytorch geometric data objects
   filename = ud_file.split(".")[0] + ".syntree"
