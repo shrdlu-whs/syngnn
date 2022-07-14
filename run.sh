@@ -12,20 +12,20 @@ fi
 if [ $1 == "ner" ];
 then
     rm ./temp/syntrans_ner.py
-    rm ./syntrans_ner.log
+    rm ./logs/syntrans_ner.log
     jupyter nbconvert jupyter nbconvert --output-dir='./temp' --to script ./syntrans_ner.ipynb
     nohup python3 ./temp/syntrans_ner.py > ./logs/syntrans_ner.log & echo $!
 fi
 
 if [ $1 == "preprocessing" ];
 then
-    rm ./data_preprocessing.log
+    rm ./logs/data_preprocessing.log
     nohup python3 ./data_preprocessing.py > ./logs/data_preprocessing.log & echo $!
 fi
 
 if [ $1 == "nertagging" ];
 then
-    rm ./ner_tagging.log
+    rm ./logs/ner_tagging.log
     nohup python3 ./ner_tagging.py > ./logs/ner_tagging.log & echo $!
 fi
 

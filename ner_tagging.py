@@ -9,6 +9,17 @@ import os
 import glob
 import re
 
+# Export env vars to limit number of threads to use
+num_threads = "10"
+os.environ["OMP_NUM_THREADS"] = num_threads 
+os.environ["OPENBLAS_NUM_THREADS"] = num_threads
+os.environ["MKL_NUM_THREADS"] = num_threads 
+os.environ["VECLIB_MAXIMUM_THREADS"] = num_threads
+os.environ["NUMEXPR_NUM_THREADS"] = num_threads
+
+# Only use CPU, hide GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 def ConvertManuallyCorrectedNERFile(manual_ner_file):
 
     manual_ner_file = os.path.abspath(manual_ner_file)
@@ -19,7 +30,7 @@ def ConvertManuallyCorrectedNERFile(manual_ner_file):
         lines = fp.readlines()
     
 
-    with open(ner_file, 'a') as file_ner:
+    with open(ner_file, 'w') as file_ner:
 
         sentence = ""
         token_ner_list = []
@@ -51,11 +62,7 @@ def ConvertManuallyCorrectedNERFile(manual_ner_file):
                 token_ner_list[token_idx] = ner_label
 
 
-def CreateNERLabelsFromDataset(file):
-
-    # load tagger
-    tagger = SequenceTagger.load("flair/ner-english-ontonotes-large")
-    print(tagger.label_dictionary)
+def CreateNERLabelsFromDataset(file, tagger):
 
     ud_file = os.path.abspath(file)
     filename = os.path.basename(ud_file)
@@ -73,7 +80,7 @@ def CreateNERLabelsFromDataset(file):
     ner_filepath = os.path.join(dirname, filename)
     filename_ner = ner_filepath.split(".")[0] + "-orig.ner"
     filename_manual_ner = ner_filepath.split(".")[0] + "-manual.ner"
-    with open(filename_ner, 'a') as file_ner:
+    with open(filename_ner, 'w') as file_ner:
         with open(filename_manual_ner, 'a') as file_manual_ner:
             for idx, sentence in enumerate(lines):
                 # Write sentence to file for manual correction
@@ -104,8 +111,12 @@ files = [f for f in files if all(sf not in f for sf in skip_files)]
 mode = "CREATE"
 
 if(mode == "CREATE"):
+    # load tagger
+    tagger = SequenceTagger.load("flair/ner-english-ontonotes-large")
+    print(tagger.label_dictionary)
     for ud_file in files:
-        CreateNERLabelsFromDataset(ud_file)
+
+        CreateNERLabelsFromDataset(ud_file, tagger)
 
 elif (mode == "CONVERT"):
     for manual_ner_file in files:
