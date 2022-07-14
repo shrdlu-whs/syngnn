@@ -8,6 +8,7 @@ from flair.models import SequenceTagger
 import os
 import glob
 import re
+import torch
 
 # Export env vars to limit number of threads to use
 num_threads = "10"
@@ -16,6 +17,13 @@ os.environ["OPENBLAS_NUM_THREADS"] = num_threads
 os.environ["MKL_NUM_THREADS"] = num_threads 
 os.environ["VECLIB_MAXIMUM_THREADS"] = num_threads
 os.environ["NUMEXPR_NUM_THREADS"] = num_threads
+
+# Limit no. of threads used by Pytorch
+torch.set_num_threads = int(num_threads)
+
+PID = os.getpid()
+PGID = os.getpgid(PID)
+print(f"PID: {PID}, PGID: {PGID}")
 
 # Only use CPU, hide GPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
