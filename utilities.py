@@ -1,6 +1,6 @@
 # %%
 class Params:
-    def __init__(self, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length):
+    def __init__(self, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task):
         self.saved_model_path = saved_model_path
         self.train_model = train_model
         self.epochs = epochs
@@ -9,6 +9,7 @@ class Params:
         self.tokenizer = tokenizer
         self.data_path = data_path
         self.sequence_length = sequence_length
+        self.task = task
 
     # %%
 
@@ -37,5 +38,9 @@ def configureParameters(parameters):
         learning_rate = float(parameters["learning_rate"])
         batch_size = int(parameters["batch_size"])
 
-        return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length)
+        # Selected task: Masked Language Model (mlm) or Named Entity Recognition (ner)
+
+        task = parameters["task"][0]
+
+        return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task)
     

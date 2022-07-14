@@ -55,6 +55,7 @@ def CreateNERLabelsFromDataset(file):
 
     # load tagger
     tagger = SequenceTagger.load("flair/ner-english-ontonotes-large")
+    print(tagger.label_dictionary)
 
     ud_file = os.path.abspath(file)
     filename = os.path.basename(ud_file)
@@ -83,8 +84,9 @@ def CreateNERLabelsFromDataset(file):
                 file_manual_ner.write("Sentence: ")
                 # Write BIOES NER tags to file
                 for token in sentence.tokens:
-                    file_ner.write(token.text + " " + token.get_label().value+"\n")
+                    file_ner.write(token.text + " " + token.get_label().value+"\t")
                     file_manual_ner.write(token.text + " ")
+                file_ner.write("\n")
                 file_manual_ner.write("\n")
 
                 # Write identified NER tags to file for manual correction
@@ -96,14 +98,17 @@ def CreateNERLabelsFromDataset(file):
 data_path = "./data/ud/"
 # Files in data folder to ignore
 skip_files = []
-files = glob.iglob(data_path + '**/*', recursive=True)
+files = glob.iglob(data_path + '**/en_gum-ud-dev.txt', recursive=True)
 files = [f for f in files if all(sf not in f for sf in skip_files)]
 
-mode = "CREATE"
+mode = "TEST"
+
+# load tagger
+tagger = SequenceTagger.load("flair/ner-english-ontonotes-large")
+print(tagger.label_dictionary.get_items())
 
 if(mode == "CREATE"):
     for ud_file in files:
-
         CreateNERLabelsFromDataset(ud_file)
 
 elif (mode == "CONVERT"):
