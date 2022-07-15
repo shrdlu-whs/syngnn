@@ -107,21 +107,29 @@ def SavePyGeomGraphImage(data, filename):
     # edge_attrs_networkx = createNetworkxEdgeAttributes(data.edge_attr, data.edge_index, dependency_tags, idx_order)
     #nx.set_edge_attributes(graph, edge_attrs_networkx)
 
-    nx.nx_agraph.write_dot(graph,"./images/ud_graphs/graph"+str(sentenceIdx)+".dot")
+    dirname = os.path.dirname("./images/ud_graphs/")
+    if not os.path.exists(dirname):
+      os.makedirs(dirname)
+    filename_dot = filename + str(sentenceIdx) + ".dot"
+    filename_png = filename + str(sentenceIdx) + ".png"
+    filepath_dot = os.path.join(dirname, filename_dot)
+    filepath_png =os.path.join(dirname, filename_png)
+
+    nx.nx_agraph.write_dot(graph, filepath_dot)
     layout = graphviz_layout(graph, prog="dot")
     nx.draw(graph, layout, arrows=False, node_size=800, labels=node_attrs_networkx, with_labels=True)
     nx.draw_networkx_edges(graph, pos = layout)
-    plt.savefig("./images/ud_graphs/"+ filename + str(sentenceIdx) +".png")
+    plt.savefig(filepath_png)
     plt.clf()
     # Remove dot file
-    os.remove("./images/ud_graphs/graph"+str(sentenceIdx)+".dot")
+    os.remove(filepath_dot)
 
 # Convert dependency tags to one-hot labels
 oh_encoder_dependencies = preprocessing.OneHotEncoder()
 oh_encoder_dependencies.fit(np.array(dependency_tags).reshape(-1,1))
 
-for ud_file in glob.iglob(data_path + '**/en_gum-ud-dev.conllu', recursive=True):
-
+for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
+  raw_sentences = []
   ud_file = os.path.abspath(ud_file)
   filename = os.path.basename(ud_file)
   print(filename)
@@ -137,8 +145,8 @@ for ud_file in glob.iglob(data_path + '**/en_gum-ud-dev.conllu', recursive=True)
     # Tokens in a sentence (node attribute)
     tokens_sentence = []
     tokens_sentence.append("root")
-
     raw_sentences.append(sentence.text)
+    #print(sentence.text)
     dep_tree = sentence.to_tree()
     DepTreeToPytorchGeom(dep_tree)
 
@@ -150,7 +158,7 @@ for ud_file in glob.iglob(data_path + '**/en_gum-ud-dev.conllu', recursive=True)
 
     # Add edge attributes: dependency tags
     # Duplicate dependency tags to create edge attributes list (undirected edges)
-    # edge_attrs = [ i for i in oh_dependency_tags for r in range(2) ]
+    edge_attrs = [ i for i in oh_dependency_tags for r in range(2) ]
 
     # Add node attributes: dependency tags
     x = torch.tensor(oh_dependency_tags, dtype=torch.float)
@@ -159,10 +167,10 @@ for ud_file in glob.iglob(data_path + '**/en_gum-ud-dev.conllu', recursive=True)
     data = Data(edge_index=edge_index, x=x)
     syntax_graphs.append(data)
 
-    #if(idx<=4):
+    if(idx<=4):
       # Save graph image
-      #filename = filename.split(".")[0]
-      #SavePyGeomGraphImage(data, filename)
+      filename = filename.split(".")[0]
+      SavePyGeomGraphImage(data, filename)
 
   # Save list of Pytorch geometric data objects
   filename = ud_file.split(".")[0] + ".syntree"
@@ -172,8 +180,8 @@ for ud_file in glob.iglob(data_path + '**/en_gum-ud-dev.conllu', recursive=True)
   if not os.path.exists(dirname):
       os.makedirs(dirname)
 
-  with open(filename, 'wb') as handle:
-      pickle.dump(syntax_graphs, handle)
+  #with open(filename, 'wb') as handle:
+  #    pickle.dump(syntax_graphs, handle)
 
   # Save raw corpus text
   filename = filename.split(".")[0] + ".txt"
