@@ -43,4 +43,31 @@ def configureParameters(parameters):
         task = parameters["task"][0]
 
         return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task)
-    
+# %%
+def find_min(list):
+    list.sort()
+    return list[0]
+# %%
+def find_max(list):
+    length = len(list)
+    list.sort()
+    return list[length-1]
+
+# %%
+# Function to find inverse permutations
+def inversePermutation(arr, size):
+ 
+    # Loop to select Elements one by one
+    for i in range(0, size):
+ 
+        # Loop to print position of element
+        # where we find an element
+        for j in range(0, size):
+ 
+        # checking the element in increasing order
+            if (arr[j] == i + 1):
+ 
+                # print position of element where
+                # element is in inverse permutation
+                print(j + 1, end = " ")
+                break

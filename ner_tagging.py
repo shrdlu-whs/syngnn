@@ -110,7 +110,7 @@ def CreateNERLabelsFromDataset(file, tagger):
 
 
 # Load text files
-data_path = "./data/ud/"
+data_path = "./data/ud/UD_English-GUM/"
 # Files in data folder to ignore
 skip_files = []
 files = glob.iglob(data_path + '**/en_*.txt', recursive=True)

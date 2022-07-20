@@ -11,11 +11,13 @@ from networkx.drawing.nx_agraph import graphviz_layout
 import matplotlib.pyplot as plt
 import pydot
 import pygraphviz
+from transformers import BertTokenizer
 from sklearn import preprocessing
 import numpy as np
 import os
 import glob
 import pickle
+from utilities import find_min, find_max, inversePermutation
 
 # Select number of threads to use
 num_threads = "2"
@@ -32,7 +34,7 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
-data_path = "./data/original/ud/"
+data_path = "./data/original/ud/UD_English-GUM/"
 # Set of syntactic dependency tags
 dependency_tags = ["-","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","obj","iobj","csubj","csubj:pass","csubj:outer","ccomp","xcomp","nummod","appos","nmod","nmod:npmod","nmod:tmod","nmod:poss","acl","acl:relcl","amod","det","det:predet","case","obl","obl:npmod","obl:tmod","advcl","advmod","compound","compound:prt","fixed","flat","flat:foreign","goeswith","vocative","discourse","expl","aux","aux:pass","cop","mark","conj","cc","cc:preconj","parataxis","list","dislocated","orphan","reparandum", "obl:agent"]
 # Raw text sentences
@@ -42,13 +44,18 @@ syntax_graphs = []
 
 device =  torch.device('cpu')
 
+tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+
+
 def DepTreeToPytorchGeom(tree):
 
     # Get data of root node
     token = tree.data
     # Add node dependency relation to list     
     dependency_tags_sentence.append(token.deprel)
+
     tokens_sentence.append(token.form)
+    conll_pytorch_idx_map.append(int(token.id))
 
     # Add edges from parent to current node and vice versa
     if( int(token.id) != 0):
@@ -91,16 +98,17 @@ def CreateNetworkxNodeAttributes(node_attributes, node_idx_list):
 
   return node_attrs_networkx
 
+
 def SavePyGeomGraphImage(data, filename):
 
-    sentenceIdx = idx + 1
+    sentenceIdx = sentence_idx + 1
 
     graph = tg_utils.to_networkx(data)
     # Create depth-first tree from graph
-    graph = nx.dfs_tree(graph, source=0)
-    #list(nx.dfs_preorder_nodes(G, source=0))
+    #graph = nx.dfs_tree(graph, source=0)
     idx_order = list(graph.nodes)
     # Create networkx node labels with dependency relations
+    #node_attrs_networkx = CreateNetworkxNodeAttributes(data.x, idx_order)
     node_attrs_networkx = CreateNetworkxNodeAttributes(data.x, idx_order)
     nx.set_node_attributes(graph, node_attrs_networkx, name="deprel")
     # Create networkx edge attributes with dependency relations
@@ -128,14 +136,14 @@ def SavePyGeomGraphImage(data, filename):
 oh_encoder_dependencies = preprocessing.OneHotEncoder()
 oh_encoder_dependencies.fit(np.array(dependency_tags).reshape(-1,1))
 
-for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
+for ud_file in glob.iglob(data_path + '**/*-train.conllu', recursive=True):
   raw_sentences = []
   ud_file = os.path.abspath(ud_file)
   filename = os.path.basename(ud_file)
   print(filename)
   file = pyconll.load_from_file(ud_file)
 
-  for idx, sentence in enumerate(file):
+  for sentence_idx, sentence in enumerate(file):
     # Edges for one graph
     edges_start = []
     edges_end = []
@@ -146,31 +154,115 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     tokens_sentence = []
     tokens_sentence.append("root")
     raw_sentences.append(sentence.text)
-    #print(sentence.text)
+    # Map of conll index to pytorch index
+    conll_pytorch_idx_map = [0]
     dep_tree = sentence.to_tree()
     DepTreeToPytorchGeom(dep_tree)
+    conll_pytorch_idx_dict = dict(enumerate(conll_pytorch_idx_map, 0))
+
+
+    #print(edges_start)
+    #print(edges_end)
+
+    for idx, start_node in enumerate(edges_start):
+      edges_start[idx] = conll_pytorch_idx_dict[edges_start[idx]]
+    for idx, start_node in enumerate(edges_end):
+      edges_end[idx] = conll_pytorch_idx_dict[edges_end[idx]]
+    
+    #print(f"Index dict{conll_pytorch_idx_dict}")
+    #print(edges_start)
+    #print(edges_end)
+ 
 
     # One-Hot encode dependency tags in sentence
     oh_dependency_tags = oh_encoder_dependencies.transform(np.array(dependency_tags_sentence).reshape(-1,1)).toarray()
 
-    # Create Pytorch data object
-    edge_index = torch.tensor([edges_start,edges_end], dtype=torch.long)
 
+ 
+    min_end = find_min(edges_start)
+    max_end = find_max(edges_start)
+    node_indices = range(min_end, max_end)
+
+    # Create subtokens
+    edges_start_tokenized = []
+    edges_start_tokenized.extend(edges_start)
+    edges_end_tokenized = []
+    edges_end_tokenized.extend(edges_end)
+    words_sentence_tokenized = []
+    words_sentence_tokenized.extend(tokens_sentence)
+
+    
+    #print(edges_start)
+    #print(edges_end)
+    print(tokens_sentence)
+    print(dependency_tags_sentence)
+    insertion_count = 0
+
+    for node_idx in node_indices:
+      word = tokens_sentence[node_idx]
+      tokens = tokenizer.tokenize(word)
+      #print(tokens)
+      for token_idx,token in enumerate(tokens):
+         # Replace first token
+        if(token_idx == 0):
+          current_idx = node_idx +insertion_count
+          words_sentence_tokenized[current_idx] = token
+          #insertion_count = insertion_count+1
+        else:
+          # add subword token to token list
+          #words_sentence_tokenized.append( token)
+          #subword_token_idx = len(words_sentence_tokenized) -1
+          current_idx = node_idx +insertion_count
+          words_sentence_tokenized.insert(current_idx+1, token)
+          insertion_count = insertion_count+1
+          # Increment values in edges_start and edges_end
+          # print(f"before {edges_start_tokenized}")
+          # edges_start_tokenized_temp = [z+1 if z > current_idx+55 else z for z in edges_start_tokenized]
+          # edges_start_tokenized = edges_start_tokenized_temp
+          # edges_end_tokenized_temp = [z+1 if z > current_idx+55  else z for z in edges_end_tokenized ] 
+          # edges_end_tokenized = edges_end_tokenized_temp
+
+          print(f"after {edges_start_tokenized}")
+          # Increment values in deprel
+          #dependency_tags_sentence_temp = [z+1 if z > current_idx+1  else z for z in dependency_tags_sentence ] 
+          #dependency_tags_sentence = dependency_tags_sentence_temp
+
+
+          # add edge from last (sub)word token to current token and vv
+          current_idx = node_idx + insertion_count
+          #edges_start_tokenized.append(current_idx+1)
+          #edges_end_tokenized.append(current_idx)
+          #edges_start_tokenized.append(current_idx+1)
+          #edges_end_tokenized.append(current_idx)
+    # raw_sentences[sentence_idx]
+    # print(tokens_sentence)
+    #print(edges_start)
+    #print(edges_start_tokenized)
+    #print(edges_end)
+    #print(edges_end_tokenized)
+    #print(words_sentence_tokenized)
+
+  
+
+    # Create Pytorch data object
+    edge_index = torch.tensor([edges_start_tokenized,edges_end_tokenized], dtype=torch.long)
     # Add edge attributes: dependency tags
     # Duplicate dependency tags to create edge attributes list (undirected edges)
     edge_attrs = [ i for i in oh_dependency_tags for r in range(2) ]
 
     # Add node attributes: dependency tags
-    x = torch.tensor(oh_dependency_tags, dtype=torch.float)
-    # edge_attrs = torch.tensor(edge_attrs, dtype=torch.float)
+    #x = torch.tensor(tokens_sentence, dtype=torch.float)
+    edge_attrs = torch.tensor(edge_attrs, dtype=torch.float)
 
-    data = Data(edge_index=edge_index, x=x)
+    data = Data(x=oh_dependency_tags,edge_index=edge_index, edge_attr=edge_attrs)
     syntax_graphs.append(data)
 
-    if(idx<=4):
+    if(sentence_idx<=4):
+      print(data)
       # Save graph image
       filename = filename.split(".")[0]
       SavePyGeomGraphImage(data, filename)
+      exit()
 
   # Save list of Pytorch geometric data objects
   filename = ud_file.split(".")[0] + ".syntree"
@@ -180,10 +272,11 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
   if not os.path.exists(dirname):
       os.makedirs(dirname)
 
-  #with open(filename, 'wb') as handle:
-  #    pickle.dump(syntax_graphs, handle)
+  with open(filename, 'wb') as handle:
+    pickle.dump(syntax_graphs, handle)
 
   # Save raw corpus text
   filename = filename.split(".")[0] + ".txt"
   with open(filename, 'w') as output:
       output.write("\n".join(raw_sentences))
+  
