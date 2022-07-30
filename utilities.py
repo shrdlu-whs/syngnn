@@ -45,13 +45,15 @@ def configureParameters(parameters):
         return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task)
 # %%
 def find_min(list):
-    list.sort()
-    return list[0]
+    list2 = list.copy()
+    list2.sort()
+    return list2[0]
 # %%
 def find_max(list):
     length = len(list)
-    list.sort()
-    return list[length-1]
+    list2 = list.copy()
+    list2.sort()
+    return list2[length-1]
 
 # %%
 # Function to find inverse permutations
