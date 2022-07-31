@@ -13,7 +13,7 @@ if [ $1 == "ner" ];
 then
     rm ./temp/syntrans_ner.py
     rm ./logs/syntrans_ner.log
-    jupyter nbconvert jupyter nbconvert --output-dir='./temp' --to script ./syntrans_ner.ipynb
+    jupyter nbconvert --output-dir='./temp' --to script ./syntrans_ner.ipynb
     nohup python3 ./temp/syntrans_ner.py > ./logs/syntrans_ner.log & echo $!
 fi
 
