@@ -1,2 +1,2 @@
 train_model;epochs;batch_size;learning_rate;saved_model_path;data_path;task
-True;2;4;5e-5;bert-base-uncased;./data/ud/UD_English-GUM/;ner
+True;10;64;5e-5;bert-base-uncased;./data/ud/UD_English-GUM;ner

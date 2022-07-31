@@ -10,6 +10,7 @@ class Params:
         self.data_path = data_path
         self.sequence_length = sequence_length
         self.task = task
+        self.max_grad_norm = 0.0
 
     # %%
 
