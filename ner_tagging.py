@@ -11,12 +11,15 @@ import re
 import torch
 
 # Export env vars to limit number of threads to use
-num_threads = "5"
+num_threads = str(12)
 os.environ["OMP_NUM_THREADS"] = num_threads 
 os.environ["OPENBLAS_NUM_THREADS"] = num_threads
 os.environ["MKL_NUM_THREADS"] = num_threads 
 os.environ["VECLIB_MAXIMUM_THREADS"] = num_threads
 os.environ["NUMEXPR_NUM_THREADS"] = num_threads
+
+# Only use CPU, hide GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 # Limit no. of threads used by Pytorch
 torch.set_num_threads = int(num_threads)
@@ -110,9 +113,9 @@ def CreateNERLabelsFromDataset(file, tagger):
 
 
 # Load text files
-data_path = "./data/ud/UD_English-GUM/"
+data_path = "./data/ud/"
 # Files in data folder to ignore
-skip_files = []
+skip_files = ["en_gum-ud-dev.txt", "en_gum-ud-test.txt", "en_gum-ud-train.txt"]
 files = glob.iglob(data_path + '**/en_*.txt', recursive=True)
 files = [f for f in files if all(sf not in f for sf in skip_files)]
 
