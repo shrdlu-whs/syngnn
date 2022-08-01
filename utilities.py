@@ -1,6 +1,6 @@
 # %%
 class Params:
-    def __init__(self, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task):
+    def __init__(self, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads):
         self.saved_model_path = saved_model_path
         self.train_model = train_model
         self.epochs = epochs
@@ -11,6 +11,7 @@ class Params:
         self.sequence_length = sequence_length
         self.task = task
         self.max_grad_norm = 0.0
+        self.num_threads = num_threads
 
     # %%
 
@@ -38,12 +39,12 @@ def configureParameters(parameters):
         epochs = int(parameters["epochs"])
         learning_rate = float(parameters["learning_rate"])
         batch_size = int(parameters["batch_size"])
+        num_threads = int(parameters["num_threads"])
 
         # Selected task: Masked Language Model (mlm) or Named Entity Recognition (ner)
-
         task = parameters["task"][0]
 
-        return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task)
+        return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads)
 # %%
 def find_min(list):
     list2 = list.copy()
