@@ -50,6 +50,8 @@ def configureParameters(parameters):
         if( "num_sentences" in parameters):
             print(parameters["num_sentences"])
             num_sentences = int(parameters["num_sentences"])
+        else:
+            num_sentences = 0
 
         return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences)
 # %%
