@@ -1,6 +1,6 @@
 # %%
 class Params:
-    def __init__(self, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads):
+    def __init__(self, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences):
         self.saved_model_path = saved_model_path
         self.train_model = train_model
         self.epochs = epochs
@@ -12,6 +12,7 @@ class Params:
         self.task = task
         self.max_grad_norm = 0.0
         self.num_threads = num_threads
+        self.num_sentences = num_sentences
 
     # %%
 
@@ -26,7 +27,8 @@ def configureParameters(parameters):
             sequence_length = int(transformer_name.split("_")[-1].replace("SL",""))
         else:
             tokenizer = saved_model_path
-            sequence_length = 136
+            #sequence_length = 136
+            sequence_length = 96
         
         # Data path
         data_path = parameters["data_path"][0]
@@ -44,7 +46,12 @@ def configureParameters(parameters):
         # Selected task: Masked Language Model (mlm) or Named Entity Recognition (ner)
         task = parameters["task"][0]
 
-        return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads)
+        # Number of sentences to process in each file
+        if( "num_sentences" in parameters):
+            print(parameters["num_sentences"])
+            num_sentences = int(parameters["num_sentences"])
+
+        return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences)
 # %%
 def find_min(list):
     list2 = list.copy()
