@@ -170,7 +170,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     edges_end = []
     # Dependency tags for a sentence (edge attribute). Add root node by default.
     dependency_tags_sentence = []
-    dependency_tags_sentence.append("-")
+    #dependency_tags_sentence.append("-")
     # Tokens in a sentence (node attribute)
     words_graph = []
     words_graph.append("root")

@@ -1,6 +1,7 @@
+import os
 # %%
 class Params:
-    def __init__(self, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences):
+    def __init__(self, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm):
         self.saved_model_path = saved_model_path
         self.train_model = train_model
         self.epochs = epochs
@@ -10,7 +11,7 @@ class Params:
         self.data_path = data_path
         self.sequence_length = sequence_length
         self.task = task
-        self.max_grad_norm = 0.0
+        self.max_grad_norm = max_grad_norm
         self.num_threads = num_threads
         self.num_sentences = num_sentences
 
@@ -28,7 +29,7 @@ def configureParameters(parameters):
         else:
             tokenizer = saved_model_path
             #sequence_length = 136
-            sequence_length = 96
+            sequence_length = 136
         
         # Data path
         data_path = parameters["data_path"][0]
@@ -52,8 +53,15 @@ def configureParameters(parameters):
             num_sentences = int(parameters["num_sentences"])
         else:
             num_sentences = 0
+        
+         # Number of sentences to process in each file
+        if( "max_grad_norm" in parameters):
+            print(parameters["num_sentences"])
+            max_grad_norm = float(parameters["max_grad_norm"])
+        else:
+            max_grad_norm = None
 
-        return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences)
+        return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm)
 # %%
 def find_min(list):
     list2 = list.copy()
@@ -84,3 +92,22 @@ def inversePermutation(arr, size):
                 # element is in inverse permutation
                 print(j + 1, end = " ")
                 break
+
+# %%
+def createNumberedDir(dirname):
+    """
+    Create folder with specified name.
+    If folder exists and is not empry: create folder with running idx attached
+    returns: created folder name
+    """
+    log_idx = 0
+    while(os.path.exists(dirname+f"_{log_idx}")):
+        # Check is dir is not empty
+        if(os.listdir(dirname+f"_{log_idx}") and log_idx <30):
+            log_idx = log_idx+1
+        else:
+            break
+    dirname = dirname+f"_{log_idx}/"
+    if not os.path.isdir(dirname):
+        os.makedirs(dirname)
+    return dirname
