@@ -41,7 +41,7 @@ print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
 data_path = "./data/original/ud/"
 # BERT tokenizer to use:
-tokenizer_name = 'bert-base-cased'
+tokenizer_name = 'bert-base-uncased'
 # Set of syntactic dependency tags
 dependency_tags = ["-","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","obj","iobj","csubj","csubj:pass","csubj:outer","ccomp","xcomp","nummod","appos","nmod","nmod:npmod","nmod:tmod","nmod:poss","acl","acl:relcl","amod","det","det:predet","case","obl","obl:npmod","obl:tmod","advcl","advmod","compound","compound:prt","fixed","flat","flat:foreign","goeswith","vocative","discourse","expl","aux","aux:pass","cop","mark","conj","cc","cc:preconj","parataxis","list","dislocated","orphan","reparandum", "obl:agent"]
 # Raw text sentences
@@ -326,19 +326,32 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     # Add node attributes: sentence token ids
     ids_graph_tokenized_np = np.array(ids_graph_tokenized)
     #print(ids_graph_tokenized_np.shape)
+    #print(ids_graph_tokenized_np[2])
+    # Pad to embedding size
+    ids_graph_tokenized_padded = np.zeros((ids_graph_tokenized_np.shape[0], 768))
+    #print(np.zeros(ids_graph_tokenized_np.shape[0]))
+    #ids_graph_tokenized_padded = [np.put(arr,[0],[ids_graph_tokenized_np[idx]]) for idx, arr in enumerate(ids_graph_tokenized_padded)]
+    
+    #ids_graph_tokenized_np = np.pad(ids_graph_tokenized_np, (0, 767), 'constant')
+
+    #print(ids_graph_tokenized_padded)
+    # Create x array of shape num_nodes, num_features
+    #x = np.array_split(ids_graph_tokenized_padded, ids_graph_tokenized_padded.shape[1])
+    #print(ids_graph_tokenized_np.shape)
     #print(np.array(edge_index).shape)
     #print(np.array(edge_attrs).shape)
     #print(edge_attrs)
-    x = torch.tensor(ids_graph_tokenized_np, dtype=torch.long)
+    x = torch.tensor(ids_graph_tokenized_padded, dtype=torch.long)
 
 
     data = Data(x=x,edge_index=edge_index, edge_attr=edge_attrs)
-    syntax_graphs.append(data)
+    syntax_graphs.append([data, sentence_graph_idx_map])
 
     if(sentence_idx<=5):
       # Save graph image
       filename = filename.split(".")[0]
-      SavePyGeomGraphImage(data, filename)
+      #SavePyGeomGraphImage(data, filename)
+      print(data)
 
   # Save raw corpus text
   filename_text = ud_file.split(".")[0] + f".txt"

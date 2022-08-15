@@ -1,7 +1,8 @@
 import os
 # %%
 class Params:
-    def __init__(self, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm):
+    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm):
+        self.use_gnn = use_gnn
         self.saved_model_path = saved_model_path
         self.train_model = train_model
         self.epochs = epochs
@@ -33,11 +34,19 @@ def configureParameters(parameters):
         
         # Data path
         data_path = parameters["data_path"][0]
+
         # Train model
         if(parameters["train_model"][0] == "True" or str(parameters["train_model"][0]) == "1"):
             train_model = True
         else:
             train_model = False
+        
+        # Use GNN
+        if(parameters["use_gnn"][0] == "True" or str(parameters["use_gnn"][0]) == "1"):
+            use_gnn = True
+        else:
+            use_gnn = False
+        
         # Number of learning epochs
         epochs = int(parameters["epochs"])
         learning_rate = float(parameters["learning_rate"])
@@ -61,7 +70,7 @@ def configureParameters(parameters):
         else:
             max_grad_norm = None
 
-        return Params(saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm)
+        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm)
 # %%
 def find_min(list):
     list2 = list.copy()
