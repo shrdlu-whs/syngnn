@@ -39,15 +39,12 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
-data_path = "./data/original/ud/"
+data_path = "./data/original/ud/UD_English-GUM/"
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-uncased'
 # Set of syntactic dependency tags
 dependency_tags = ["-","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","obj","iobj","csubj","csubj:pass","csubj:outer","ccomp","xcomp","nummod","appos","nmod","nmod:npmod","nmod:tmod","nmod:poss","acl","acl:relcl","amod","det","det:predet","case","obl","obl:npmod","obl:tmod","advcl","advmod","compound","compound:prt","fixed","flat","flat:foreign","goeswith","vocative","discourse","expl","aux","aux:pass","cop","mark","conj","cc","cc:preconj","parataxis","list","dislocated","orphan","reparandum", "obl:agent"]
-# Raw text sentences
-raw_sentences = []
-# List of Pytorch Geometric syntax graphs
-syntax_graphs = []
+
 
 device =  torch.device('cpu')
 
@@ -158,7 +155,10 @@ oh_encoder_dependencies = preprocessing.OneHotEncoder()
 oh_encoder_dependencies.fit(np.array(dependency_tags).reshape(-1,1))
 
 for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
+  # Raw text sentences
   raw_sentences = []
+  # List of Pytorch Geometric syntax graphs
+  syntax_graphs = []
   ud_file = os.path.abspath(ud_file)
   filename = os.path.basename(ud_file)
   print(filename)
@@ -372,6 +372,9 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     os.makedirs(dirname)
 
   with open(filename_syntree, 'wb') as handle:
+    print(filename_syntree)
+    print(syntax_graphs[0:2])
+    print(len(syntax_graphs))
     pickle.dump(syntax_graphs, handle)
 
 
