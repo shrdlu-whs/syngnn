@@ -22,7 +22,14 @@ import numpy as np
 import os
 import glob
 import pickle
-from utilities import find_min, find_max, inversePermutation
+import importlib
+import nltk
+from nltk.tokenize import word_tokenize
+nltk.download('punkt')
+import utilities_data_preprocessing as utils
+
+# Reload utils library if changed
+importlib.reload(utils)
 
 # Select number of threads to use
 num_threads = "2"
@@ -41,7 +48,7 @@ print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
 data_path = "./data/original/ud/UD_English-GUM/"
 # BERT tokenizer to use:
-tokenizer_name = 'bert-base-uncased'
+tokenizer_name = 'bert-base-cased'
 # Set of syntactic dependency tags
 dependency_tags = ["-","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","obj","iobj","csubj","csubj:pass","csubj:outer","ccomp","xcomp","nummod","appos","nmod","nmod:npmod","nmod:tmod","nmod:poss","acl","acl:relcl","amod","det","det:predet","case","obl","obl:npmod","obl:tmod","advcl","advmod","compound","compound:prt","fixed","flat","flat:foreign","goeswith","vocative","discourse","expl","aux","aux:pass","cop","mark","conj","cc","cc:preconj","parataxis","list","dislocated","orphan","reparandum", "obl:agent"]
 
@@ -49,9 +56,10 @@ dependency_tags = ["-","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","
 device =  torch.device('cpu')
 
 tokenizer = BertTokenizer.from_pretrained(tokenizer_name)
+print_graph = False
+count_graph_sentence_discrepancy = 0
 
-
-def DepTreeToPytorchGeom(tree):
+def dep_tree_to_pytorch_geom(tree):
 
     # Get data of root node
     token = tree.data
@@ -71,9 +79,9 @@ def DepTreeToPytorchGeom(tree):
     #print(f"{token.head}->{token.id}, {token.upos}, {token.form}, {token.deprel}")
 
     for subtree in tree.__iter__():
-        DepTreeToPytorchGeom(subtree)
+        dep_tree_to_pytorch_geom(subtree)
 
-def createNetworkxEdgeAttributes(edge_attributes, edge_index, oh_labels, node_idx_list):
+def create_networkx_edge_attributes(edge_attributes, edge_index, oh_labels, node_idx_list):
   edge_attrs_networkx = {}
   num_edges = edge_index[0].size()[0] - 1
   edge_attributes = oh_encoder_dependencies.inverse_transform(np.array(edge_attributes))
@@ -94,20 +102,20 @@ def createNetworkxEdgeAttributes(edge_attributes, edge_index, oh_labels, node_id
   #print(edge_attrs_networkx)
   return edge_attrs_networkx
 
-def CreateNetworkxNodeAttributes(node_attributes, node_idx_list):
+def create_networkx_node_attributes(node_attributes, node_idx_list):
   node_attrs_networkx = {}
-  node_attributes = tokenizer.convert_ids_to_tokens(node_attributes)
 
   for idx, node_attr in enumerate(node_attributes):
     # Get node index from list
     node_idx = node_idx_list[idx]
     # Add label to list
-    node_attrs_networkx[node_idx] = node_attr
+    node_label = tokenizer.convert_ids_to_tokens([node_attr[0]])[0]
+    node_attrs_networkx[node_idx] = node_label
 
   return node_attrs_networkx
 
 
-def SavePyGeomGraphImage(data, filename):
+def save_pygeom_graph_image(data, filename):
 
     sentenceIdx = sentence_idx + 1
 
@@ -116,11 +124,11 @@ def SavePyGeomGraphImage(data, filename):
     #graph = nx.dfs_tree(graph, source=0)
     idx_order = list(graph.nodes)
     # Create networkx node labels with tokens
-    node_attrs_networkx = CreateNetworkxNodeAttributes(data.x, idx_order)
+    node_attrs_networkx = create_networkx_node_attributes(data.x, idx_order)
     #print(node_attrs_networkx)
     #nx.set_node_attributes(graph, node_attrs_networkx)
     # Create networkx edge attributes with dependency relations
-    edge_attrs_networkx = createNetworkxEdgeAttributes(data.edge_attr, data.edge_index, dependency_tags, idx_order)
+    edge_attrs_networkx = create_networkx_edge_attributes(data.edge_attr, data.edge_index, dependency_tags, idx_order)
     #nx.set_edge_attributes(graph, edge_attrs_networkx)
 
     dirname = os.path.dirname("./images/ud_graphs/")
@@ -150,13 +158,18 @@ def SavePyGeomGraphImage(data, filename):
     # Remove dot file
     os.remove(filepath_dot)
 
+
 # Convert dependency tags to one-hot labels
 oh_encoder_dependencies = preprocessing.OneHotEncoder()
 oh_encoder_dependencies.fit(np.array(dependency_tags).reshape(-1,1))
-
+unequal_length_count = 0
 for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
   # Raw text sentences
   raw_sentences = []
+  # Processed text sentences
+  processed_sentences = []
+  # Unresolved sentences indices
+  unresolved_sentences = []
   # List of Pytorch Geometric syntax graphs
   syntax_graphs = []
   ud_file = os.path.abspath(ud_file)
@@ -179,7 +192,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     # Map of conll index to pytorch index
     conll_pytorch_idx_map = [0]
     dep_tree = sentence.to_tree()
-    DepTreeToPytorchGeom(dep_tree)
+    dep_tree_to_pytorch_geom(dep_tree)
     conll_pytorch_idx_dict = dict(enumerate(conll_pytorch_idx_map, 0))
     conll_pytorch_idx_dict = {v: k for k, v in conll_pytorch_idx_dict.items()}
     #print(conll_pytorch_idx_dict)
@@ -202,9 +215,12 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     # One-Hot encode dependency tags in sentence
     oh_dependency_tags = oh_encoder_dependencies.transform(np.array(dependency_tags_sentence).reshape(-1,1)).toarray()
 
-    min_end = find_min(edges_start)
-    max_end = find_max(edges_start)
-    node_indices = range(min_end, max_end)
+    min_end = utils.find_min(edges_start)
+    max_end = utils.find_max(edges_start)
+    if(min_end > max_end):
+      node_indices = range(min_end, max_end)
+    else:
+      node_indices = range(min_end, max_end+1)
 
     # Create subtokens
     edges_start_tokenized = edges_start.copy()
@@ -218,7 +234,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     words_sentence_tokenized = []
 
     insertion_count = 0
-
     # Tokenize sentence and add subword tokens to graph
     for node_idx in node_indices:
       word = words_graph[node_idx]
@@ -236,28 +251,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
           words_graph_tokenized.append( token)
           subword_token_idx = len(words_graph_tokenized) -1
 
-          # add subword token after token
-          #current_idx = node_idx +insertion_count
-          #words_graph_tokenized.insert(current_idx+1, token)
-          #insertion_count = insertion_count+1
-          # Increment values in edges_start and edges_end
-          # print(f"before {edges_start_tokenized}")
-          #edges_start_tokenized_temp = [z+1 if z > current_idx+1 else z for z in edges_start_tokenized]
-          #edges_start_tokenized = edges_start_tokenized_temp
-          #edges_end_tokenized_temp = [z+1 if z > current_idx+1  else z for z in edges_end_tokenized ] 
-          #edges_end_tokenized = edges_end_tokenized_temp
-
-          #print(f"after {edges_start_tokenized}")
-          # Increment values in deprel
-          #dependency_tags_sentence_temp = [z+1 if z > current_idx+1  else z for z in dependency_tags_sentence ] 
-          #dependency_tags_sentence = dependency_tags_sentence_temp
-          # add edge from last (sub)word token to current token and vv
-          #subword_token_idx = current_idx+token_idx
-          #edges_start_tokenized.append(current_idx)
-          #edges_end_tokenized.append(subword_token_idx)
-          #edges_start_tokenized.append(subword_token_idx)
-          #edges_end_tokenized.append(current_idx)
-
           # add edge from last (sub)word token to current token and vv
           edges_start_tokenized.append(current_idx)
           edges_end_tokenized.append(subword_token_idx)
@@ -271,29 +264,125 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
             edges_start_tokenized.append(subword_token_idx)
             edges_end_tokenized.append(subword_token_idx-1)
 
-    # raw_sentences[sentence_idx]
-    # print(tokens_sentence)
-    #print(edges_start)
-    #print("After tokenization:")
-    #print(edges_start_tokenized)
-    #print(edges_end)
-    #print(edges_end_tokenized)
-    #print(words_graph_tokenized)
-
     # Convert graph tokens to ids
     ids_graph_tokenized = tokenizer.convert_tokens_to_ids(words_graph_tokenized)
 
-    # Tokenize raw sentence
-    # Add the special tokens.
-    marked_text = "[CLS] " + raw_sentence+ " [SEP]"
-    words_sentence_tokenized = tokenizer.tokenize(marked_text)
+    # Tokenize sentence with Bert tokenizer
+    words_sentence_tokenized = tokenizer.tokenize(raw_sentence)
+    
+    # If sentence and graph match: do not continue further processing
+    if (len(words_graph_tokenized) == len(words_sentence_tokenized)+1):
+      processed_sentences.append(raw_sentence)
+    # Sentence and graph are not of same length (i.e. different tokenization): process further
+    else:
+          ###############################################################
+          # Start graph to sentence alignment
+      # Process raw sentence
+      # Align split words in graph (e.g. negative modals) with raw sentence - for example convert wasn't to was n't
+      words_sentence = word_tokenize(raw_sentence)
+      #words_sentence = raw_sentence.split(" ")
+      words_sentence_temp = words_sentence.copy()
+
+      insertion_count = 0
+      for word_idx, word in enumerate(words_sentence):
+
+        if (word == "''" or word == "``"):
+          words_sentence_temp[word_idx] = '"'
+        if (word.find("-",1) == -1 or word == "--"):
+          continue
+  
+        # Check if word exists in graph
+        if word in words_graph:
+            continue
+        words_sentence_temp.pop(word_idx+insertion_count)
+        split_word = word.split("-")
+        if(word == "--"):
+            print(split_word)
+        for sub_idx, substring in enumerate(split_word):
+            words_sentence_temp.insert(word_idx+insertion_count, substring)
+            insertion_count = insertion_count+1
+            if (sub_idx != len(split_word)-1):
+              words_sentence_temp.insert(word_idx+insertion_count, "-")
+              insertion_count = insertion_count+1
+
+      # Copy graph words w/o root node
+      words_graph_temp = words_graph.copy()[1:]
+      # Copy tokenized sentences
+      words_sentence_processed = words_sentence_temp.copy()
+      
+      words_sentence_temp, words_graph_temp, remaining_tokens_sentence_idx, remaining_tokens_graph_idx = utils.compare_sentence_to_graph(words_sentence_temp, words_graph_temp)
+      joined_strings_sentence, joined_strings_sentence_index_list = utils.join_consecutive_tokens(words_sentence_temp, remaining_tokens_sentence_idx)
+      joined_strings_graph, joined_strings_graph_index_list = utils.join_consecutive_tokens(words_graph_temp, remaining_tokens_graph_idx)
+
+      insertion_count = 0 
+      for list_idx_sentence, joined_string_sentence in enumerate(joined_strings_sentence):
+
+        if ( sentence_idx == 531):
+          print("looping through joined strings")
+
+        # Check if joined string exists in graph
+        try:
+          list_idx_graph = joined_strings_graph.index(joined_string_sentence)
+        except:
+          continue
+
+        if (list_idx_graph >=0):
+          joined_string_graph = joined_strings_graph[list_idx_graph]
+          onestring_indices_graph = joined_strings_graph_index_list[list_idx_graph]
+          onestring_indices_sentence = joined_strings_sentence_index_list[list_idx_sentence]
+
+          # get position for delete and insert in words_sentence_temp
+          position_delete = onestring_indices_sentence[0]
+          len_onestring_indices_sentence = len(onestring_indices_sentence)
+          for pos_idx in range(len_onestring_indices_sentence):
+            words_sentence_temp.pop(position_delete)
+            words_sentence_processed.pop(position_delete)
+            joined_strings_sentence_index_list = utils.shift_token_indices_in_list_of_index_lists( joined_strings_sentence_index_list, position_delete, -1)
+            #print(joined_strings_sentence_index_list)
+
+          #print(f"After delete at position {position_delete}")
+          #print(words_sentence_temp)
+
+          position_insert = position_delete
+          for pos_idx in onestring_indices_graph:
+            graph_token = words_graph_temp[pos_idx]
+            words_sentence_temp.insert(position_insert, graph_token)
+            words_sentence_processed.insert(position_insert, graph_token)
+            joined_strings_sentence_index_list = utils.shift_token_indices_in_list_of_index_lists( joined_strings_sentence_index_list, position_insert, 1)
+            position_insert = position_insert +1
+          
+      
+      
+      
+      # Re-calculate amount of unmatching sentences and graphs
+      words_sentence_temp, words_graph_temp, remaining_tokens_sentence_idx, remaining_tokens_graph_idx = utils.compare_sentence_to_graph(words_sentence_temp, words_graph_temp)
+      if (len(set(words_graph_temp))>1 and len(set(words_sentence_temp))>1):
+        unresolved_sentences.append(sentence_idx)
+      
+        # Record unresolved sentence graph matchings
+        count_graph_sentence_discrepancy = count_graph_sentence_discrepancy+1
+        
+        #print(words_graph)
+        print(words_sentence_processed)
+        print(words_graph_temp)
+        print(words_sentence_temp)
+
+      else:
+        # Add final graph-aligned sentence to processed sentences
+        processed_sentences.append(" ".join(words_sentence_processed))
+
+        # Tokenize sentence
+        for word in words_sentence_processed:
+          tokens = tokenizer.tokenize(word)
+        for token_idx,token in enumerate(tokens):
+            words_sentence_tokenized.append(token)
+
+
     ids_sentence_tokenized = tokenizer.convert_tokens_to_ids(words_sentence_tokenized)
 
     # Map sentence token ids to graph token ids
     sentence_graph_idx_map = {}
     ids_graph_tokenized_temp = ids_graph_tokenized.copy()
-    #print(ids_sentence_tokenized)
-    #print(ids_graph_tokenized_temp)
 
     for idx, token_id in enumerate(ids_sentence_tokenized):
       if token_id in ids_graph_tokenized_temp:
@@ -301,7 +390,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
         ids_graph_tokenized_temp[token_idx_graph] = "token processed"
         sentence_graph_idx_map[idx] = token_idx_graph
     
-    #print(sentence_graph_idx_map)
     tokens_graph = []
     # Get position of sentence tokens in graph 
     for idx, token_id in enumerate(ids_sentence_tokenized):
@@ -309,13 +397,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
         graph_token_idx = ids_graph_tokenized[sentence_graph_idx_map[idx]]
         tokens_graph.append(tokenizer.convert_ids_to_tokens(graph_token_idx))
     
-    #print("Original sentence:")
-    #print(words_sentence_tokenized)
-    #print("Reconstructed graph order:")
-    #print(tokens_graph)
-
-  
-
     # Create Pytorch data object
     edge_index = torch.tensor([edges_start_tokenized,edges_end_tokenized], dtype=torch.long)
     # Add edge attributes: dependency tags
@@ -325,35 +406,35 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
     # Add node attributes: sentence token ids
     ids_graph_tokenized_np = np.array(ids_graph_tokenized)
-    #print(ids_graph_tokenized_np.shape)
-    #print(ids_graph_tokenized_np[2])
+
     # Pad to embedding size
     ids_graph_tokenized_padded = np.zeros((ids_graph_tokenized_np.shape[0], 768))
-    #print(np.zeros(ids_graph_tokenized_np.shape[0]))
-    #ids_graph_tokenized_padded = [np.put(arr,[0],[ids_graph_tokenized_np[idx]]) for idx, arr in enumerate(ids_graph_tokenized_padded)]
-    
-    #ids_graph_tokenized_np = np.pad(ids_graph_tokenized_np, (0, 767), 'constant')
+    for idx, token_id in enumerate(ids_graph_tokenized_np):
+      ids_graph_tokenized_padded[idx][0] = token_id
 
-    #print(ids_graph_tokenized_padded)
-    # Create x array of shape num_nodes, num_features
-    #x = np.array_split(ids_graph_tokenized_padded, ids_graph_tokenized_padded.shape[1])
-    #print(ids_graph_tokenized_np.shape)
-    #print(np.array(edge_index).shape)
-    #print(np.array(edge_attrs).shape)
-    #print(edge_attrs)
     x = torch.tensor(ids_graph_tokenized_padded, dtype=torch.long)
-
-
     data = Data(x=x,edge_index=edge_index, edge_attr=edge_attrs)
-    syntax_graphs.append([data, sentence_graph_idx_map])
+    #if (sentence_idx not in unresolved_sentences):
+    if (sentence_idx not in unresolved_sentences):
+      syntax_graphs.append([data, sentence_graph_idx_map])
 
-    if(sentence_idx<=5):
-      # Save graph image
-      filename = filename.split(".")[0]
-      #SavePyGeomGraphImage(data, filename)
-      print(data)
+    if( sentence_idx <= 5):
+      save_pygeom_graph_image(data, filename.split(".")[0])
+   
+    """if (len(words_graph_tokenized) != len(words_sentence_tokenized)+1):
+        """
 
-  # Save raw corpus text
+    if( print_graph ):
+      #print(raw_sentence)
+
+      save_pygeom_graph_image(data, filename.split(".")[0])
+      print_graph = False
+
+  print("count_graph_sentence_discrepancy")
+  print(f"Ignored {count_graph_sentence_discrepancy} sentences because graph and sentence did not match")
+  print(f"Num syntax graphs: {len(syntax_graphs)}")
+  print(f"Num processed sentences: {len(processed_sentences)}")
+  # Save processed corpus text
   filename_text = ud_file.split(".")[0] + f".txt"
   filename_text = filename_text.replace("original/","")
 
@@ -362,7 +443,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     os.makedirs(dirname)
   
   with open(filename_text, 'w') as output:
-    output.write("\n".join(raw_sentences))
+    output.write("\n".join(processed_sentences))
 
   # Save list of Pytorch geometric data objects
   filename_syntree = filename_text.split(".")[0] + f"-{tokenizer_name}.syntree"
@@ -372,9 +453,9 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     os.makedirs(dirname)
 
   with open(filename_syntree, 'wb') as handle:
-    print(filename_syntree)
-    print(syntax_graphs[0:2])
-    print(len(syntax_graphs))
+    #print(filename_syntree)
+    #print(syntax_graphs[0:2])
+    #print(len(syntax_graphs))
     pickle.dump(syntax_graphs, handle)
 
 
