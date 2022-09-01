@@ -19,8 +19,8 @@ fi
 
 if [ $1 == "preprocessing" ];
 then
-    rm ./logs/data_preprocessing.log
-    nohup python3 ./data_preprocessing.py > ./logs/data_preprocessing.log & echo $!
+    rm ./logs/data_preprocessing_dep_ud.log
+    nohup python3 ./data_preprocessing_dep_ud.py > ./logs/data_preprocessing_ud.log & echo $!
 fi
 
 if [ $1 == "nertagging" ];

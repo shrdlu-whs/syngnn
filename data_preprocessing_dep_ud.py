@@ -46,7 +46,7 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
-data_path = "./data/original/ud/UD_English-GUM/"
+data_path = "./data/original/ud/"
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-cased'
 # Set of syntactic dependency tags
@@ -361,11 +361,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       
         # Record unresolved sentence graph matchings
         count_graph_sentence_discrepancy = count_graph_sentence_discrepancy+1
-        
-        #print(words_graph)
-        print(words_sentence_processed)
-        print(words_graph_temp)
-        print(words_sentence_temp)
 
       else:
         # Add final graph-aligned sentence to processed sentences
@@ -432,7 +427,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
   print("count_graph_sentence_discrepancy")
   print(f"Ignored {count_graph_sentence_discrepancy} sentences because graph and sentence did not match")
-  print(f"Num syntax graphs: {len(syntax_graphs)}")
+  print(f"Num syntax graphs created: {len(syntax_graphs)}")
   print(f"Num processed sentences: {len(processed_sentences)}")
   # Save processed corpus text
   filename_text = ud_file.split(".")[0] + f".txt"
