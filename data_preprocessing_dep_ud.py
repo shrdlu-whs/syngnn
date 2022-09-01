@@ -46,7 +46,7 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
-data_path = "./data/original/ud/"
+data_path = "./data/original/ud/UD_English-EWT"
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-cased'
 # Set of syntactic dependency tags
@@ -335,13 +335,14 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
           position_delete = onestring_indices_sentence[0]
           len_onestring_indices_sentence = len(onestring_indices_sentence)
           for pos_idx in range(len_onestring_indices_sentence):
-            words_sentence_temp.pop(position_delete)
-            words_sentence_processed.pop(position_delete)
-            joined_strings_sentence_index_list = utils.shift_token_indices_in_list_of_index_lists( joined_strings_sentence_index_list, position_delete, -1)
-            #print(joined_strings_sentence_index_list)
+            try:
+              words_sentence_temp.pop(position_delete)
+              words_sentence_processed.pop(position_delete)
+            except:
+              #print(f"Index error at: {raw_sentence}. Ignoring sentence.")
+              break
 
-          #print(f"After delete at position {position_delete}")
-          #print(words_sentence_temp)
+            joined_strings_sentence_index_list = utils.shift_token_indices_in_list_of_index_lists( joined_strings_sentence_index_list, position_delete, -1)
 
           position_insert = position_delete
           for pos_idx in onestring_indices_graph:
@@ -351,9 +352,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
             joined_strings_sentence_index_list = utils.shift_token_indices_in_list_of_index_lists( joined_strings_sentence_index_list, position_insert, 1)
             position_insert = position_insert +1
           
-      
-      
-      
       # Re-calculate amount of unmatching sentences and graphs
       words_sentence_temp, words_graph_temp, remaining_tokens_sentence_idx, remaining_tokens_graph_idx = utils.compare_sentence_to_graph(words_sentence_temp, words_graph_temp)
       if (len(set(words_graph_temp))>1 and len(set(words_sentence_temp))>1):
@@ -425,8 +423,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       save_pygeom_graph_image(data, filename.split(".")[0])
       print_graph = False
 
-  print("count_graph_sentence_discrepancy")
-  print(f"Ignored {count_graph_sentence_discrepancy} sentences because graph and sentence did not match")
+ 
   print(f"Num syntax graphs created: {len(syntax_graphs)}")
   print(f"Num processed sentences: {len(processed_sentences)}")
   # Save processed corpus text
@@ -452,6 +449,8 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     #print(syntax_graphs[0:2])
     #print(len(syntax_graphs))
     pickle.dump(syntax_graphs, handle)
+  
+print(f"Ignored {count_graph_sentence_discrepancy} sentences because graph and sentence did not match")
 
 
   
