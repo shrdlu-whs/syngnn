@@ -46,11 +46,11 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
-data_path = "./data/original/ud/UD_English-EWT"
+data_path = "./data/original/ud/UD_English-GUM"
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-cased'
 # Set of syntactic dependency tags
-dependency_tags = ["-","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","obj","iobj","csubj","csubj:pass","csubj:outer","ccomp","xcomp","nummod","appos","nmod","nmod:npmod","nmod:tmod","nmod:poss","acl","acl:relcl","amod","det","det:predet","case","obl","obl:npmod","obl:tmod","advcl","advmod","compound","compound:prt","fixed","flat","flat:foreign","goeswith","vocative","discourse","expl","aux","aux:pass","cop","mark","conj","cc","cc:preconj","parataxis","list","dislocated","orphan","reparandum", "obl:agent"]
+dependency_tags = ["-","sub","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","obj","iobj","csubj","csubj:pass","csubj:outer","ccomp","xcomp","nummod","appos","nmod","nmod:npmod","nmod:tmod","nmod:poss","acl","acl:relcl","amod","det","det:predet","case","obl","obl:npmod","obl:tmod","advcl","advmod","compound","compound:prt","fixed","flat","flat:foreign","goeswith","vocative","discourse","expl","aux","aux:pass","cop","mark","conj","cc","cc:preconj","parataxis","list","dislocated","orphan","reparandum", "obl:agent"]
 
 
 device =  torch.device('cpu')
@@ -69,12 +69,12 @@ def dep_tree_to_pytorch_geom(tree):
     words_graph.append(token.form)
     conll_pytorch_idx_map.append(int(token.id))
 
-    # Add edges from parent to current node and vice versa
+    # Add edges from parent to current node
     if( int(token.id) != 0):
         edges_start.append(int(token.head))
         edges_end.append(int(token.id))
-        edges_start.append(int(token.id))
-        edges_end.append(int(token.head))
+        #edges_start.append(int(token.id))
+        #edges_end.append(int(token.head))
 
     #print(f"{token.head}->{token.id}, {token.upos}, {token.form}, {token.deprel}")
 
@@ -211,10 +211,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     #print(edges_start)
     #print(edges_end)
  
-
-    # One-Hot encode dependency tags in sentence
-    oh_dependency_tags = oh_encoder_dependencies.transform(np.array(dependency_tags_sentence).reshape(-1,1)).toarray()
-
     min_end = utils.find_min(edges_start)
     max_end = utils.find_max(edges_start)
     if(min_end > max_end):
@@ -235,6 +231,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
     insertion_count = 0
     # Tokenize sentence and add subword tokens to graph
+    # Add sub relation to 
     for node_idx in node_indices:
       word = words_graph[node_idx]
       tokens = tokenizer.tokenize(word)
@@ -251,18 +248,25 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
           words_graph_tokenized.append( token)
           subword_token_idx = len(words_graph_tokenized) -1
 
-          # add edge from last (sub)word token to current token and vv
+          # Add sub dependency tag for subword token
+          dependency_tags_sentence.append('sub')
+          # add edge from last (sub)word token to current token
           edges_start_tokenized.append(current_idx)
           edges_end_tokenized.append(subword_token_idx)
-          edges_start_tokenized.append(subword_token_idx)
-          edges_end_tokenized.append(current_idx)
+          #edges_start_tokenized.append(subword_token_idx)
+          #edges_end_tokenized.append(current_idx)
+
+        # Add subword token after subword token
         else:
             words_graph_tokenized.append( token)
             subword_token_idx = len(words_graph_tokenized) -1
             edges_start_tokenized.append(subword_token_idx-1)
             edges_end_tokenized.append(subword_token_idx)
-            edges_start_tokenized.append(subword_token_idx)
-            edges_end_tokenized.append(subword_token_idx-1)
+            #edges_start_tokenized.append(subword_token_idx)
+            #edges_end_tokenized.append(subword_token_idx-1)
+
+            # Add sub dependency tag for subword token
+            dependency_tags_sentence.append('sub')
 
     # Convert graph tokens to ids
     ids_graph_tokenized = tokenizer.convert_tokens_to_ids(words_graph_tokenized)
@@ -275,8 +279,8 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       processed_sentences.append(raw_sentence)
     # Sentence and graph are not of same length (i.e. different tokenization): process further
     else:
-          ###############################################################
-          # Start graph to sentence alignment
+      ###############################################################
+      # Start graph to sentence alignment
       # Process raw sentence
       # Align split words in graph (e.g. negative modals) with raw sentence - for example convert wasn't to was n't
       words_sentence = word_tokenize(raw_sentence)
@@ -295,6 +299,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
         if word in words_graph:
             continue
         words_sentence_temp.pop(word_idx+insertion_count)
+        insterion_count = insertion_count-1
         split_word = word.split("-")
         if(word == "--"):
             print(split_word)
@@ -314,7 +319,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       joined_strings_sentence, joined_strings_sentence_index_list = utils.join_consecutive_tokens(words_sentence_temp, remaining_tokens_sentence_idx)
       joined_strings_graph, joined_strings_graph_index_list = utils.join_consecutive_tokens(words_graph_temp, remaining_tokens_graph_idx)
 
-      insertion_count = 0 
+      #insertion_count = 0 
       for list_idx_sentence, joined_string_sentence in enumerate(joined_strings_sentence):
 
         if ( sentence_idx == 531):
@@ -393,8 +398,11 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     # Create Pytorch data object
     edge_index = torch.tensor([edges_start_tokenized,edges_end_tokenized], dtype=torch.long)
     # Add edge attributes: dependency tags
+    # One-Hot encode dependency tags in sentence
+    oh_dependency_tags = oh_encoder_dependencies.transform(np.array(dependency_tags_sentence).reshape(-1,1)).toarray()
     # Duplicate dependency tags to create edge attributes list (undirected edges)
-    edge_attrs = [ i for i in oh_dependency_tags for r in range(2) ]
+    # Changed to directed edges
+    edge_attrs = [ i for i in oh_dependency_tags for r in range(1) ]
     edge_attrs = torch.tensor(np.array(edge_attrs), dtype=torch.float)
 
     # Add node attributes: sentence token ids
@@ -413,9 +421,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
     if( sentence_idx <= 5):
       save_pygeom_graph_image(data, filename.split(".")[0])
-   
-    """if (len(words_graph_tokenized) != len(words_sentence_tokenized)+1):
-        """
 
     if( print_graph ):
       #print(raw_sentence)
@@ -446,7 +451,8 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
   with open(filename_syntree, 'wb') as handle:
     #print(filename_syntree)
-    #print(syntax_graphs[0:2])
+    print(syntax_graphs[0:5])
+    print(ids_graph_tokenized_np)
     #print(len(syntax_graphs))
     pickle.dump(syntax_graphs, handle)
   

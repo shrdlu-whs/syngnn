@@ -59,7 +59,7 @@ class SynGNNLayer(nn.Module):
     based on Pytorch TransformerEncoderLayer implementing the architecture in paper “Attention Is All You Need”. 
     
     """
-    def __init__(self, dim_in, dim_hdn, dim_out, num_heads, dim_feedforward=2048, dropout=0.1, activation="relu"):
+    def __init__(self, dim_in, dim_hdn, dim_out, num_att_heads, dim_edge_attrs=None, dropout=0.1, activation="relu"):
         r"""
         Args:
             param dim_in: input dimension
@@ -68,14 +68,14 @@ class SynGNNLayer(nn.Module):
         """
         super(SynGNNLayer, self).__init__()
         # Graph attention sublayer
-        self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_hdn , heads=num_heads)
-        self.linear1 = tg_nn.Linear(dim_hdn*num_heads, dim_hdn*num_heads)
-        self.linear2 = tg_nn.Linear(dim_hdn*num_heads, dim_hdn*num_heads)
-        self.linear_classifier = tg_nn.Linear(dim_hdn*num_heads, dim_out)
+        self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_hdn, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=True)
+        self.linear1 = tg_nn.Linear(dim_hdn, dim_hdn)
+        self.linear2 = tg_nn.Linear(dim_hdn, dim_hdn)
+        self.linear_classifier = tg_nn.Linear(dim_hdn, dim_out)
 
         self.norm0 = tg_nn.LayerNorm(dim_in)
-        self.norm1 = tg_nn.LayerNorm(dim_hdn*num_heads)
-        self.norm2 = tg_nn.LayerNorm(dim_hdn*num_heads)
+        self.norm1 = tg_nn.LayerNorm(dim_hdn)
+        self.norm2 = tg_nn.LayerNorm(dim_hdn)
         self.norm3 = tg_nn.LayerNorm(dim_out)
         self.dropout0 = nn.Dropout(dropout)
         self.dropout1 = nn.Dropout(dropout)
@@ -96,17 +96,18 @@ class SynGNNLayer(nn.Module):
             state['activation'] = F.relu
         super(SynGNNLayer, self).__setstate__(state)
 
-    def forward(self, x, edge_index, batch):
+    def forward(self, x, edge_index, edge_attr, batch):
         r"""Pass the input through the encoder layer.
         Args:
             x: node features
             edge_index: graph edges
             batch: current batch
         """
+        #print(f"Input: {x.size()}")
         # Graph attention sublayer
         src = self.norm0(x)
-        #print(f"Input: {src.size()}")
-        src2, att = self.graph_attn(src, edge_index, return_attention_weights = True)
+        #print(f"After norm: {src.size()}")
+        src2, att = self.graph_attn(src, edge_index, edge_attr, return_attention_weights = True)
 
         #print(f"Graph Att Output src2: {src2.size()}")
         src = src + self.dropout1(src2)
@@ -146,18 +147,19 @@ class SynGNN(nn.Module):
         self.num_layers = num_layers
         self.norm = norm
 
-    def forward(self, x, edge_index, batch):
+    def forward(self, x, edge_index, edge_attr, batch):
         r"""Pass the input through the encoder layers in turn.
         Args:
             x: node features
             edge_index: graph edges
+            edge_attr: graph edge attributes
             batch: current batch
         """
         output = x
         attns = []
 
         for layer in self.layers:
-            output, attn = layer(x, edge_index, batch)
+            output, attn = layer(x, edge_index, edge_attr, batch)
             attns.append(attn)
         #attns = torch.stack(attns)
 
@@ -190,13 +192,13 @@ def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])        
 # %%
 class SynBertForNer(nn.Module):
-    def __init__(self, bert_config, num_node_features, num_labels, num_att_heads, num_layers, device_str=None):
+    def __init__(self, bert_config, num_node_features, num_labels, num_edge_attrs, num_att_heads, num_layers, device_str=None):
 
         super(SynBertForNer, self).__init__()
         self.num_labels = num_labels
 
         self.bert = BertModel(bert_config)
-        self.gnn_layer = SynGNNLayer(dim_in=num_node_features, dim_hdn = num_node_features, dim_out = num_labels, num_heads = num_att_heads)
+        self.gnn_layer = SynGNNLayer(dim_in=num_node_features, dim_hdn=num_node_features, dim_out=num_labels, dim_edge_attrs=num_edge_attrs,num_att_heads=num_att_heads)
         self.syngnn = SynGNN(self.gnn_layer, num_layers = num_layers)
 
     def forward(self, input_ids, syntax_graphs, sentence_graph_idx_maps, token_type_ids=None, attention_mask=None, label_ids=None,valid_ids=None,attention_mask_label=None):
@@ -223,28 +225,26 @@ class SynBertForNer(nn.Module):
        
 
         # Convert syntax graphs to dataset batch
+        #print(graphs_with_embeddings)
         pyg_data_batch = tg_data.Batch.from_data_list(graphs_with_embeddings)
         pyg_data_batch.to(torch.device('cpu'))
         #print(f"Graph Batch: {pyg_data_batch}")
         
         # Calculate syngnn output
-        logits, attn = self.syngnn(torch.tensor(pyg_data_batch.x,dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.batch)
+        logits, attn = self.syngnn(torch.tensor(pyg_data_batch.x,dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr, pyg_data_batch.batch)
 
         # Calculate loss if true labels given
         if label_ids is not None:
-            #print(label_ids)
             # Trim Bert label attention mask to graph token labels length
             token_mask_labels = []
             for sentence_idx, label_mask in enumerate(attention_mask_label):
+                # Find SEP token id in sentence and get index
                 sep_idx = label_ids.tolist()[sentence_idx].index(78)
-                #print(f"sep idx: {sep_idx}")
                 token_mask_labels_temp = label_mask.tolist()
-                #token_mask_labels_temp[0] = 0
+                # Ignore SEP token
                 token_mask_labels_temp[sep_idx] = 0
                 token_mask_labels.extend(token_mask_labels_temp)
-            #print(token_mask_labels)
             token_mask_labels = torch.tensor(token_mask_labels)
-            #print(token_mask_labels)
 
             """
             for graph_idx, graph in enumerate(syntax_graphs):
@@ -306,7 +306,8 @@ class SynBertForNer(nn.Module):
                     print("Label att mask")
                     print(attention_mask_label)
                     print("Label token mask")
-                    print(token_mask_labels)
+                    print(token_mask_labels.size())
+                    print(active_loss)
                     tokenizer = BertTokenizer.from_pretrained("bert-base-cased")
                     print("Tokens sentence:")
                     for sentence in input_ids:
@@ -315,10 +316,6 @@ class SynBertForNer(nn.Module):
                     print("Graph:")
                     for graph in graphs_with_embeddings:
                         print(graph)
-                    print(f"Logits: {logits.size()}")
-
-
-
             else:
                 loss = loss_fct(logits_view, labels_view)
             return loss, logits
