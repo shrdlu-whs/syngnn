@@ -68,7 +68,7 @@ class SynGNNLayer(nn.Module):
         """
         super(SynGNNLayer, self).__init__()
         # Graph attention sublayer
-        self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_hdn, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=True)
+        self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_hdn, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=False)
         self.linear1 = tg_nn.Linear(dim_hdn, dim_hdn)
         self.linear2 = tg_nn.Linear(dim_hdn, dim_hdn)
         self.linear_classifier = tg_nn.Linear(dim_hdn, dim_out)
@@ -172,13 +172,14 @@ class SynGNN(nn.Module):
         graph_ids = []
         tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         for sent_token_idx, pt_embedding in enumerate(pt_embeddings):
-            embedding = pt_embedding.detach().clone()
+            embedding = pt_embedding.clone().detach()
+
             if sent_token_idx in sentence_graph_idx_map:
                 # Look up corresponding index in graph for current token embedding
                 graph_token_idx = sentence_graph_idx_map[sent_token_idx]
                 #print(ptg_graph.x[graph_idx])
                 #ptg_graph.x.resize(ptg_graph.num_nodes, embedding.size())
-                ptg_graph.x[graph_token_idx] = torch.tensor(embedding,dtype=torch.float32)
+                ptg_graph.x[graph_token_idx] = embedding
                 graph_ids.append(input_ids[sent_token_idx])
 
         """print("Tokens graph:")
@@ -231,7 +232,7 @@ class SynBertForNer(nn.Module):
         #print(f"Graph Batch: {pyg_data_batch}")
         
         # Calculate syngnn output
-        logits, attn = self.syngnn(torch.tensor(pyg_data_batch.x,dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr, pyg_data_batch.batch)
+        logits, attn = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr, pyg_data_batch.batch)
 
         # Calculate loss if true labels given
         if label_ids is not None:

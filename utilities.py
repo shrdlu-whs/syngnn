@@ -1,7 +1,7 @@
 import os
 # %%
 class Params:
-    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm):
+    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers):
         self.use_gnn = use_gnn
         self.saved_model_path = saved_model_path
         self.train_model = train_model
@@ -15,6 +15,8 @@ class Params:
         self.max_grad_norm = max_grad_norm
         self.num_threads = num_threads
         self.num_sentences = num_sentences
+        self.num_att_heads = num_att_heads
+        self.num_layers = num_layers
 
     # %%
 
@@ -58,19 +60,29 @@ def configureParameters(parameters):
 
         # Number of sentences to process in each file
         if( "num_sentences" in parameters):
-            print(parameters["num_sentences"])
             num_sentences = int(parameters["num_sentences"])
         else:
             num_sentences = 0
         
-         # Number of sentences to process in each file
+         # Max grad norm parameter
         if( "max_grad_norm" in parameters):
-            print(parameters["num_sentences"])
             max_grad_norm = float(parameters["max_grad_norm"])
         else:
             max_grad_norm = None
+        
+        # Num attention heads in GAT layer
+        if( "num_att_heads" in parameters):
+            num_att_heads = int(parameters["num_att_heads"])
+        else:
+            num_att_heads = 1
+        
+        # Num transformer layers
+        if( "num_layers" in parameters):
+            num_layers = int(parameters["num_layers"])
+        else:
+            num_layers = 2
 
-        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm)
+        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers)
 
 
 # %%

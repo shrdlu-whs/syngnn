@@ -46,7 +46,7 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
-data_path = "./data/original/ud/UD_English-GUM"
+data_path = "./data/original/ud/"
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-cased'
 # Set of syntactic dependency tags
@@ -197,7 +197,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     conll_pytorch_idx_dict = {v: k for k, v in conll_pytorch_idx_dict.items()}
     #print(conll_pytorch_idx_dict)
 
-    #print("Before mapping of conllu to pytorch indizes:")
+    #print("Before mapping of conllu to pytorch indices:")
     #print(edges_start)
     #print(edges_end)
 
@@ -207,12 +207,12 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       edges_end[idx] = conll_pytorch_idx_dict[end_node]
     
     #print(f"Index dict{conll_pytorch_idx_dict}")
-    #print("After mapping of conllu to pytorch indizes:")
+    #print("After mapping of conllu to pytorch indices:")
     #print(edges_start)
     #print(edges_end)
  
     min_end = utils.find_min(edges_start)
-    max_end = utils.find_max(edges_start)
+    max_end = utils.find_max(edges_end)
     if(min_end > max_end):
       node_indices = range(min_end, max_end)
     else:
@@ -231,14 +231,16 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
     insertion_count = 0
     # Tokenize sentence and add subword tokens to graph
-    # Add sub relation to 
+    # Add sub relation to edge features
     for node_idx in node_indices:
       word = words_graph[node_idx]
       tokens = tokenizer.tokenize(word)
-      #print(tokens)
+      if (raw_sentence.find("Finally, findings on enjambment") != -1):
+        print(node_indices)
       for token_idx,token in enumerate(tokens):
          # Replace first token
         if(token_idx == 0):
+          #current_idx = node_idx +insertion_count
           current_idx = node_idx +insertion_count
           words_graph_tokenized[current_idx] = token
           #insertion_count = insertion_count+1
@@ -247,7 +249,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
           # add subword token to end of token list
           words_graph_tokenized.append( token)
           subword_token_idx = len(words_graph_tokenized) -1
-
           # Add sub dependency tag for subword token
           dependency_tags_sentence.append('sub')
           # add edge from last (sub)word token to current token
@@ -273,6 +274,9 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
     # Tokenize sentence with Bert tokenizer
     words_sentence_tokenized = tokenizer.tokenize(raw_sentence)
+    if (raw_sentence.find("Finally, findings on enjambment") != -1):
+      print(words_graph_tokenized)
+      print(words_sentence_tokenized)
     
     # If sentence and graph match: do not continue further processing
     if (len(words_graph_tokenized) == len(words_sentence_tokenized)+1):
@@ -299,7 +303,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
         if word in words_graph:
             continue
         words_sentence_temp.pop(word_idx+insertion_count)
-        insterion_count = insertion_count-1
+        #insterion_count = insertion_count-1
         split_word = word.split("-")
         if(word == "--"):
             print(split_word)
@@ -319,7 +323,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       joined_strings_sentence, joined_strings_sentence_index_list = utils.join_consecutive_tokens(words_sentence_temp, remaining_tokens_sentence_idx)
       joined_strings_graph, joined_strings_graph_index_list = utils.join_consecutive_tokens(words_graph_temp, remaining_tokens_graph_idx)
 
-      #insertion_count = 0 
+      insertion_count = 0 
       for list_idx_sentence, joined_string_sentence in enumerate(joined_strings_sentence):
 
         if ( sentence_idx == 531):
@@ -422,11 +426,28 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     if( sentence_idx <= 5):
       save_pygeom_graph_image(data, filename.split(".")[0])
 
+
+
+    """if (raw_sentence.find("Finally, findings on enjambment") != -1):
+      print_graph=True
+      print(words_sentence_processed)
+      print(words_sentence_temp)
+      print(words_graph)
+      print(words_graph_tokenized)
+      print(tokenizer.tokenize("diachronic"))
+      test = ['root', 'discussed', 'Finally', ',', 'findings', 'enjambment', 'on', 'corpus', 'in', 'our', 'diachronic', 'sonnet', 'are', '.']
+      tokenized = []
+      for word in test:
+        tokenized_word = tokenizer.tokenize(word)
+        tokenized.extend(tokenized_word)
+      print(tokenized)"""
+    
     if( print_graph ):
       #print(raw_sentence)
 
       save_pygeom_graph_image(data, filename.split(".")[0])
       print_graph = False
+
 
  
   print(f"Num syntax graphs created: {len(syntax_graphs)}")
@@ -451,8 +472,8 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
   with open(filename_syntree, 'wb') as handle:
     #print(filename_syntree)
-    print(syntax_graphs[0:5])
-    print(ids_graph_tokenized_np)
+    #print(syntax_graphs[0:5])
+    #print(ids_graph_tokenized_np)
     #print(len(syntax_graphs))
     pickle.dump(syntax_graphs, handle)
   
