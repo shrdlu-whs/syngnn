@@ -422,6 +422,10 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     #if (sentence_idx not in unresolved_sentences):
     if (sentence_idx not in unresolved_sentences):
       syntax_graphs.append([data, sentence_graph_idx_map])
+      if (len(words_graph_tokenized)-1 != len(words_sentence_tokenized)):
+        print("Sntences with wrong lengths:")
+        print(words_graph_tokenized)
+        print(words_sentence_tokenized)
 
     if( sentence_idx <= 5):
       save_pygeom_graph_image(data, filename.split(".")[0])
@@ -447,6 +451,8 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
       save_pygeom_graph_image(data, filename.split(".")[0])
       print_graph = False
+    
+
 
 
  
