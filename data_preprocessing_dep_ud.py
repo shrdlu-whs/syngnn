@@ -46,7 +46,7 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
-data_path = "./data/original/ud/"
+data_path = "./data/original/ud/UD_English-GUM"
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-cased'
 # Set of syntactic dependency tags
@@ -283,6 +283,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       processed_sentences.append(raw_sentence)
     # Sentence and graph are not of same length (i.e. different tokenization): process further
     else:
+      words_sentence_tokenized = []
       ###############################################################
       # Start graph to sentence alignment
       # Process raw sentence
@@ -303,10 +304,9 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
         if word in words_graph:
             continue
         words_sentence_temp.pop(word_idx+insertion_count)
-        #insterion_count = insertion_count-1
+        insertion_count = insertion_count-1
         split_word = word.split("-")
-        if(word == "--"):
-            print(split_word)
+
         for sub_idx, substring in enumerate(split_word):
             words_sentence_temp.insert(word_idx+insertion_count, substring)
             insertion_count = insertion_count+1
@@ -363,7 +363,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
           
       # Re-calculate amount of unmatching sentences and graphs
       words_sentence_temp, words_graph_temp, remaining_tokens_sentence_idx, remaining_tokens_graph_idx = utils.compare_sentence_to_graph(words_sentence_temp, words_graph_temp)
-      if (len(set(words_graph_temp))>1 and len(set(words_sentence_temp))>1):
+      if (len(set(words_graph_temp))>1 or len(set(words_sentence_temp))>1):
         unresolved_sentences.append(sentence_idx)
       
         # Record unresolved sentence graph matchings
@@ -423,9 +423,12 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     if (sentence_idx not in unresolved_sentences):
       syntax_graphs.append([data, sentence_graph_idx_map])
       if (len(words_graph_tokenized)-1 != len(words_sentence_tokenized)):
-        print("Sntences with wrong lengths:")
+       ''' print("Tokenized Sentences with wrong lengths:")
         print(words_graph_tokenized)
         print(words_sentence_tokenized)
+        print("Sentences with wrong lengths:")
+        print(words_graph)
+        print(words_sentence_processed)'''
 
     if( sentence_idx <= 5):
       save_pygeom_graph_image(data, filename.split(".")[0])
@@ -452,7 +455,13 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       save_pygeom_graph_image(data, filename.split(".")[0])
       print_graph = False
     
-
+    query_mapping = {0: 3, 1: 4, 2: 2, 3: 5, 4: 6, 5: 55, 6: 56, 7: 57, 8: 8, 9: 10, 10: 9, 11: 11, 12: 12, 13: 7, 14: 58, 15: 59, 16: 60, 17: 61, 18: 62, 19: 13, 20: 14, 21: 15, 22: 1, 23: 17, 24: 16, 25: 18, 26: 20, 27: 22, 28: 21, 29: 23, 30: 25, 31: 26, 32: 24, 33: 28, 34: 29, 35: 54, 36: 64, 37: 63, 38: 30, 39: 31, 40: 27, 41: 33, 42: 34, 43: 32, 44: 36, 45: 37, 46: 35, 47: 66, 48: 67, 49: 38, 50: 19, 51: 40, 52: 42, 53: 41, 54: 43, 55: 68, 56: 69, 57: 45, 58: 44, 59: 70, 60: 71, 61: 72, 62: 39, 63: 47, 64: 46, 65: 73, 66: 49, 67: 50, 68: 48, 69: 52, 70: 53, 71: 51, 72: 65}
+    if ( sentence_graph_idx_map == query_mapping):
+      print(syntax_graphs[sentence_idx])
+      print(raw_sentence)
+      print(words_sentence_tokenized)
+      print(len(words_sentence_tokenized))
+      print(words_graph)
 
 
  
