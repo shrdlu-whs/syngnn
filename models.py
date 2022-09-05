@@ -16,9 +16,13 @@ import torch_geometric.nn as tg_nn
 import copy
 import random
 import numpy as np
+import os
 
 # Limit no. of threads used by Pytorch
-torch.set_num_threads = int(30)
+os.environ["OMP_NUM_THREADS"] = "26"
+os.environ["MKL_NUM_THREADS"] = "26" 
+torch.set_num_threads = 26
+torch.set_num_interop_threads = 26
 seed = 42
 random.seed(seed)
 np.random.seed(seed)
