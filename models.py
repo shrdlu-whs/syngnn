@@ -59,7 +59,7 @@ class SynGNNLayer(nn.Module):
     based on Pytorch TransformerEncoderLayer implementing the architecture in paper “Attention Is All You Need”. 
     
     """
-    def __init__(self, dim_in, dim_hdn, dim_out, num_att_heads, dim_edge_attrs=None, dropout=0.1, activation="relu"):
+    def __init__(self, dim_in, dim_out, num_att_heads, dim_hdn=2048, dim_edge_attrs=None, dropout=0.1, activation="relu"):
         r"""
         Args:
             param dim_in: input dimension
@@ -68,14 +68,14 @@ class SynGNNLayer(nn.Module):
         """
         super(SynGNNLayer, self).__init__()
         # Graph attention sublayer
-        self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_hdn, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=False)
-        self.linear1 = tg_nn.Linear(dim_hdn, dim_hdn)
-        self.linear2 = tg_nn.Linear(dim_hdn, dim_hdn)
-        self.linear_classifier = tg_nn.Linear(dim_hdn, dim_out)
+        self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_in, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=False)
+        self.linear1 = tg_nn.Linear(dim_in, dim_hdn)
+        self.linear2 = tg_nn.Linear(dim_hdn, dim_in)
+        self.linear_classifier = tg_nn.Linear(dim_in, dim_out)
 
         self.norm0 = tg_nn.LayerNorm(dim_in)
-        self.norm1 = tg_nn.LayerNorm(dim_hdn)
-        self.norm2 = tg_nn.LayerNorm(dim_hdn)
+        self.norm1 = tg_nn.LayerNorm(dim_in)
+        self.norm2 = tg_nn.LayerNorm(dim_in)
         self.norm3 = tg_nn.LayerNorm(dim_out)
         self.dropout0 = nn.Dropout(dropout)
         self.dropout1 = nn.Dropout(dropout)
@@ -111,7 +111,7 @@ class SynGNNLayer(nn.Module):
 
         #print(f"Graph Att Output src2: {src2.size()}")
         src = src + self.dropout1(src2)
-        #print(f" After adding layers: {src.size()}")
+        #print(f" After resdual connection: {src.size()}")
         src = self.norm1(src)
 
         # Feed-Forward-Network sublayer
@@ -119,6 +119,7 @@ class SynGNNLayer(nn.Module):
 
         #print(f" After linear layer 2: {src2.size()}")
         src = src + self.dropout2(src2)
+        #print(f" After residual connection: {src.size()}")
         src = self.norm2(src)
         src = self.linear_classifier(src)
         src = self.norm3(src)
@@ -199,7 +200,7 @@ class SynBertForNer(nn.Module):
         self.num_labels = num_labels
 
         self.bert = BertModel(bert_config)
-        self.gnn_layer = SynGNNLayer(dim_in=num_node_features, dim_hdn=num_node_features, dim_out=num_labels, dim_edge_attrs=num_edge_attrs,num_att_heads=num_att_heads)
+        self.gnn_layer = SynGNNLayer(dim_in=num_node_features, dim_out=num_labels, dim_edge_attrs=num_edge_attrs,num_att_heads=num_att_heads)
         self.syngnn = SynGNN(self.gnn_layer, num_layers = num_layers)
 
     def forward(self, input_ids, syntax_graphs, sentence_graph_idx_maps, token_type_ids=None, attention_mask=None, label_ids=None,valid_ids=None,attention_mask_label=None):
