@@ -11,10 +11,10 @@ fi
 
 if [ $1 == "syngnn" ];
 then
-    rm ./temp/syntrans_main.py
-    rm ./logs/syntrans_main.log
-    jupyter nbconvert --output-dir='./temp' --to script ./syntrans_main.ipynb
-    nohup python3 ./temp/syntrans_ner.py > ./logs/syntrans_main.log & echo $!
+    rm ./temp/syngnn_main.py
+    rm ./logs/syngnn_main.log
+    jupyter nbconvert --output-dir='./temp' --to script ./syngnn_main.ipynb
+    nohup python3 ./temp/syngnn_main.py > ./logs/syngnn_main.log & echo $!
 fi
 
 if [ $1 == "preprocessing_ud" ];

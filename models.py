@@ -204,6 +204,8 @@ class SynBertForNer(nn.Module):
         self.syngnn = SynGNN(self.gnn_layer, num_layers = num_layers)
 
     def forward(self, input_ids, syntax_graphs, sentence_graph_idx_maps, token_type_ids=None, attention_mask=None, label_ids=None,valid_ids=None,attention_mask_label=None):
+        #print("Input Ids")
+        #print(input_ids)
 
         # Calculate Bert embeddings
         sequence_output = self.bert(input_ids, token_type_ids, attention_mask,head_mask=None)[0]
@@ -305,19 +307,22 @@ class SynBertForNer(nn.Module):
                     print("Labels:")
                     print(label_ids.size())
                     print(active_labels.size())
-                    print("Label att mask")
-                    print(attention_mask_label)
-                    print("Label token mask")
-                    print(token_mask_labels.size())
-                    print(active_loss)
-                    tokenizer = BertTokenizer.from_pretrained("bert-base-cased")
-                    print("Tokens sentence:")
-                    for sentence in input_ids:
-                        print(tokenizer.convert_ids_to_tokens(sentence))
+                    print("Input Ids")
+                    print(input_ids)
+                    print(input_ids.size())
+                    #print("Label att mask")
+                    #print(attention_mask_label)
+                    #print("Label token mask")
+                    #print(token_mask_labels.size())
+                    #print(active_loss)
+                    #tokenizer = BertTokenizer.from_pretrained("bert-base-cased")
+                    #print("Tokens sentence:")
+                    #for sentence in input_ids:
+                    #    print(tokenizer.convert_ids_to_tokens(sentence))
                     #print(sentence)
-                    print("Graph:")
-                    for graph in graphs_with_embeddings:
-                        print(graph)
+                    #print("Graph:")
+                    #for graph in graphs_with_embeddings:
+                    #    print(graph)
             else:
                 loss = loss_fct(logits_view, labels_view)
             return loss, logits
