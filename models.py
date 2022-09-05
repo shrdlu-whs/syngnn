@@ -14,6 +14,15 @@ import torch_geometric.loader as tg_loader
 import torch_geometric.utils as tg_utils
 import torch_geometric.nn as tg_nn
 import copy
+import random
+import numpy as np
+
+# Limit no. of threads used by Pytorch
+torch.set_num_threads = int(30)
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
 # %%
 class BertForNer(BertForTokenClassification):
     """
