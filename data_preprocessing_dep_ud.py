@@ -46,7 +46,7 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 data_path_dev = "./data/original/ud/UD_English-GUM/"
-data_path = "./data/original/ud/"
+data_path = "./data/original/ud/UD_English-GUM"
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-cased'
 # Set of syntactic dependency tags
@@ -235,8 +235,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     for node_idx in node_indices:
       word = words_graph[node_idx]
       tokens = tokenizer.tokenize(word)
-      if (raw_sentence.find("Finally, findings on enjambment") != -1):
-        print(node_indices)
+
       for token_idx,token in enumerate(tokens):
          # Replace first token
         if(token_idx == 0):
@@ -273,10 +272,15 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     ids_graph_tokenized = tokenizer.convert_tokens_to_ids(words_graph_tokenized)
 
     # Tokenize sentence with Bert tokenizer
-    words_sentence_tokenized = tokenizer.tokenize(raw_sentence)
-    if (raw_sentence.find("Finally, findings on enjambment") != -1):
-      print(words_graph_tokenized)
-      print(words_sentence_tokenized)
+    words_sentence_tokenized = []
+    for word in raw_sentence.split(" "):
+      #print(tokenizer.tokenize(word))
+      words_sentence_tokenized.extend(tokenizer.tokenize(word))
+      #print(words_sentence_tokenized)
+
+    #if (raw_sentence.find("Finally, findings on enjambment") != -1):
+    #  print(words_graph_tokenized)
+    #  print(words_sentence_tokenized)
     
     # If sentence and graph match: do not continue further processing
     if (len(words_graph_tokenized) == len(words_sentence_tokenized)+1):
@@ -433,12 +437,15 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
         print(words_sentence_tokenized)
         print("Sentences with wrong lengths:")
         print(words_graph)
-        print(words_sentence_processed)
+        #print(words_sentence_processed)
 
     if( sentence_idx <= 5):
       save_pygeom_graph_image(data, filename.split(".")[0])
 
-
+    if (sentence_graph_idx_map == {0: 15, 1: 3, 2: 2, 3: 5, 4: 6, 5: 4, 6: 8, 7: 10, 8: 9, 9: 7, 10: 89, 11: 11, 12: 12, 13: 13, 14: 90, 15: 1, 16: 16, 17: 14, 18: 18, 19: 17, 20: 20, 21: 21, 22: 22, 23: 19, 24: 24, 25: 25, 26: 23, 27: 27, 28: 26, 29: 29, 30: 30, 31: 28, 32: 32, 33: 33, 34: 34, 35: 31, 36: 36, 37: 37, 38: 38, 39: 39, 40: 35, 41: 41, 42: 40, 43: 88, 44: 42, 45: 44, 46: 45, 47: 47, 48: 46, 49: 48, 50: 43, 51: 50, 52: 49, 53: 52, 54: 53, 55: 54, 56: 51, 57: 56, 58: 57, 59: 55, 60: 59, 61: 60, 62: 58, 63: 92, 64: 93, 65: 94, 66: 62, 67: 61, 68: 95, 69: 65, 70: 64, 71: 67, 72: 66, 73: 68, 74: 63, 75: 96, 76: 70, 77: 71, 78: 72, 79: 69, 80: 73, 81: 81, 82: 80, 83: 75, 84: 84, 85: 85, 86: 82, 87: 79, 88: 86, 89: 83, 90: 76, 91: 77, 92: 74, 93: 87, 94: 78, 95: 91}):
+        print("Sentence for mapping:")
+        print(words_graph_tokenized)
+        print(words_sentence_tokenized)
 
     """if (raw_sentence.find("Finally, findings on enjambment") != -1):
       print_graph=True

@@ -310,19 +310,21 @@ class SynBertForNer(nn.Module):
                     print("Input Ids")
                     print(input_ids)
                     print(input_ids.size())
-                    #print("Label att mask")
-                    #print(attention_mask_label)
-                    #print("Label token mask")
-                    #print(token_mask_labels.size())
-                    #print(active_loss)
-                    #tokenizer = BertTokenizer.from_pretrained("bert-base-cased")
-                    #print("Tokens sentence:")
-                    #for sentence in input_ids:
-                    #    print(tokenizer.convert_ids_to_tokens(sentence))
-                    #print(sentence)
-                    #print("Graph:")
-                    #for graph in graphs_with_embeddings:
-                    #    print(graph)
+                    print("Label att mask")
+                    print(attention_mask_label)
+                    print("Label token mask")
+                    print(token_mask_labels.size())
+                    print(active_loss)
+                    tokenizer = BertTokenizer.from_pretrained("bert-base-cased")
+                    print("Tokens sentence:")
+                    for sentence_idx, sentence in enumerate(input_ids):
+                        print(tokenizer.convert_ids_to_tokens(sentence))
+                    print(sentence)
+                    print("Graph:")
+                    for graph in graphs_with_embeddings:
+                        print(graph)
+                    print(sentence_graph_idx_maps)
+
             else:
                 loss = loss_fct(logits_view, labels_view)
             return loss, logits
