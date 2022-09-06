@@ -17,16 +17,8 @@ import copy
 import random
 import numpy as np
 import os
+import torch.jit as jit
 
-# Limit no. of threads used by Pytorch
-os.environ["OMP_NUM_THREADS"] = "26"
-os.environ["MKL_NUM_THREADS"] = "26" 
-torch.set_num_threads = 26
-torch.set_num_interop_threads = 26
-seed = 42
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
 # %%
 class BertForNer(BertForTokenClassification):
     """
@@ -66,13 +58,13 @@ class BertForNer(BertForTokenClassification):
         else:
             return logits
 # %%
-class SynGNNLayer(nn.Module):
+class SynGNNLayer(torch.nn.Module):
     """
     SynGNN Pytorch module
     based on Pytorch TransformerEncoderLayer implementing the architecture in paper “Attention Is All You Need”. 
     
     """
-    def __init__(self, dim_in, dim_out, num_att_heads, dim_hdn=2048, dim_edge_attrs=None, dropout=0.1, activation="relu"):
+    def __init__(self, dim_in, dim_out, num_att_heads, dim_edge_attrs=None, dropout=0.1, activation="relu", dim_hdn=2048):
         r"""
         Args:
             param dim_in: input dimension
@@ -109,6 +101,7 @@ class SynGNNLayer(nn.Module):
             state['activation'] = F.relu
         super(SynGNNLayer, self).__setstate__(state)
 
+    
     def forward(self, x, edge_index, edge_attr, batch):
         r"""Pass the input through the encoder layer.
         Args:
@@ -140,7 +133,7 @@ class SynGNNLayer(nn.Module):
         return src, att
 
 # %%
-class SynGNN(nn.Module):
+class SynGNN(torch.nn.Module):
     r"""TransformerEncoder is a stack of N encoder layers. 
     Based on Huggingface Pytorch implementation
     Args:
@@ -155,12 +148,15 @@ class SynGNN(nn.Module):
     """
     __constants__ = ['norm']
 
-    def __init__(self, encoder_layer, num_layers, norm=None):
+    def __init__(self, num_node_features, num_labels, num_att_heads, num_edge_attrs, num_layers, norm=None):
+        
         super(SynGNN, self).__init__()
-        self.layers = _get_clones(encoder_layer, num_layers)
+        syngnn_layer = SynGNNLayer(num_node_features, num_labels, num_att_heads, num_edge_attrs)
+        self.layers = _get_clones(syngnn_layer, num_layers)
         self.num_layers = num_layers
         self.norm = norm
 
+    
     def forward(self, x, edge_index, edge_attr, batch):
         r"""Pass the input through the encoder layers in turn.
         Args:
@@ -184,16 +180,15 @@ class SynGNN(nn.Module):
     
     def add_bert_embeddings_to_graph(self, ptg_graph, pt_embeddings, sentence_graph_idx_map, input_ids):
         graph_ids = []
-        tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         for sent_token_idx, pt_embedding in enumerate(pt_embeddings):
-            embedding = pt_embedding.clone().detach()
+            #embedding = pt_embedding.clone().detach()
 
             if sent_token_idx in sentence_graph_idx_map:
                 # Look up corresponding index in graph for current token embedding
                 graph_token_idx = sentence_graph_idx_map[sent_token_idx]
                 #print(ptg_graph.x[graph_idx])
                 #ptg_graph.x.resize(ptg_graph.num_nodes, embedding.size())
-                ptg_graph.x[graph_token_idx] = embedding
+                ptg_graph.x[graph_token_idx] = pt_embedding
                 graph_ids.append(input_ids[sent_token_idx])
 
         """print("Tokens graph:")
@@ -213,22 +208,19 @@ class SynBertForNer(nn.Module):
         self.num_labels = num_labels
 
         self.bert = BertModel(bert_config)
-        self.gnn_layer = SynGNNLayer(dim_in=num_node_features, dim_out=num_labels, dim_edge_attrs=num_edge_attrs,num_att_heads=num_att_heads)
-        self.syngnn = SynGNN(self.gnn_layer, num_layers = num_layers)
+        self.syngnn = SynGNN(num_node_features, num_labels, num_att_heads, num_edge_attrs, num_layers = num_layers)
 
     def forward(self, input_ids, syntax_graphs, sentence_graph_idx_maps, token_type_ids=None, attention_mask=None, label_ids=None,valid_ids=None,attention_mask_label=None):
-        #print("Input Ids")
-        #print(input_ids)
 
         # Calculate Bert embeddings
         sequence_output = self.bert(input_ids, token_type_ids, attention_mask,head_mask=None)[0]
-        batch_size,max_len,feat_dim = sequence_output.shape
+        batch_size,seq_len,feat_dim = sequence_output.shape
 
         # Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
-        valid_output = torch.zeros(batch_size,max_len,feat_dim,dtype=torch.float32)
+        valid_output = torch.zeros(batch_size,seq_len,feat_dim,dtype=torch.float32)
         for batch_idx in range(batch_size):
             valid_idx = -1
-            for token_idx in range(max_len):
+            for token_idx in range(seq_len):
                 # Only add embedding to output if valid_id mask is 1
                 if valid_ids[batch_idx][token_idx].item() == 1:
                     valid_idx += 1
@@ -243,6 +235,8 @@ class SynBertForNer(nn.Module):
 
         # Convert syntax graphs to dataset batch
         #print(graphs_with_embeddings)
+        #print(syntax_graphs[batch_idx])
+        #pyg_data_batch = tg_data.Batch.from_data_list(syntax_graphs)
         pyg_data_batch = tg_data.Batch.from_data_list(graphs_with_embeddings)
         pyg_data_batch.to(torch.device('cpu'))
         #print(f"Graph Batch: {pyg_data_batch}")
