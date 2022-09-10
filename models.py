@@ -232,7 +232,7 @@ class SynBertForNer(nn.Module):
         graphs_with_embeddings = []
 
         for batch_idx in range(batch_size):
-            graphs_with_embeddings.append(self.syngnn.add_bert_embeddings_to_graph(syntax_graphs[batch_idx], valid_output[batch_idx],sentence_graph_idx_maps[batch_idx], input_ids[batch_idx]))
+            graphs_with_embeddings.append(self.syngnn.add_bert_embeddings_to_graph(syntax_graphs[batch_idx], sequence_output[batch_idx],sentence_graph_idx_maps[batch_idx], input_ids[batch_idx]))
        
 
         # Convert syntax graphs to dataset batch
