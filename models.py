@@ -278,8 +278,8 @@ class SynBertForNer(nn.Module):
 
            
 
-            # Loss function: do not count labels with index 0, that is tokens labelled with X (=ignore)
-            loss_fct = nn.CrossEntropyLoss(ignore_index=0)
+            # Loss function: do not count labels with index 1, that is tokens labelled with O (=ignore)
+            loss_fct = nn.CrossEntropyLoss(ignore_index=1)
             # Trim Bert labels to contain only graph token labels
             if attention_mask_label is not None:
                 active_loss = token_mask_labels.view(-1) == 1
