@@ -76,12 +76,12 @@ class SynGNNLayer(torch.nn.Module):
         self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_in, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=False)
         self.linear1 = tg_nn.Linear(dim_in, dim_hdn)
         self.linear2 = tg_nn.Linear(dim_hdn, dim_in)
-        self.linear_classifier = tg_nn.Linear(dim_in, dim_out)
+        #self.linear_classifier = tg_nn.Linear(dim_in, dim_out)
 
         self.norm0 = tg_nn.LayerNorm(dim_in)
         self.norm1 = tg_nn.LayerNorm(dim_in)
         self.norm2 = tg_nn.LayerNorm(dim_in)
-        self.norm3 = tg_nn.LayerNorm(dim_out)
+        #self.norm3 = tg_nn.LayerNorm(dim_out)
         self.dropout0 = nn.Dropout(dropout)
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
@@ -127,8 +127,8 @@ class SynGNNLayer(torch.nn.Module):
         src = src + self.dropout2(src2)
         #print(f" After residual connection: {src.size()}")
         src = self.norm2(src)
-        src = self.linear_classifier(src)
-        src = self.norm3(src)
+        #src = self.linear_classifier(src)
+        #src = self.norm3(src)
         #print(f" After linear output layer: {src.size()}")
         return src, att
 
@@ -209,6 +209,8 @@ class SynBertForNer(nn.Module):
 
         self.bert = BertModel(bert_config)
         self.syngnn = SynGNN(num_node_features, num_labels, num_att_heads, num_edge_attrs, num_layers = num_layers)
+        self.linear_classifier = tg_nn.Linear(num_node_features, num_labels)
+        self.norm = tg_nn.LayerNorm(num_labels)
 
     def forward(self, input_ids, syntax_graphs, sentence_graph_idx_maps, token_type_ids=None, attention_mask=None, label_ids=None,valid_ids=None,attention_mask_label=None):
 
@@ -242,8 +244,10 @@ class SynBertForNer(nn.Module):
         #print(f"Graph Batch: {pyg_data_batch}")
         
         # Calculate syngnn output
-        logits, attn = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr, pyg_data_batch.batch)
-
+        syngnn_output, attn = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr, pyg_data_batch.batch)
+        # Calculate classifier output
+        logits = self.linear_classifier(syngnn_output)
+        logits = self.norm(logits)
         # Calculate loss if true labels given
         if label_ids is not None:
             # Trim Bert label attention mask to graph token labels length
