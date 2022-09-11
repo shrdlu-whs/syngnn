@@ -302,7 +302,6 @@ class SynBertForNer(nn.Module):
             if attention_mask_label is not None:
                 active_labels_mask = token_mask_labels.view(-1) == 1
                 active_labels = labels_view[active_labels_mask]
-                loss_fct = nn.CrossEntropyLoss(ignore_index=0)
                 #try:
                 loss = loss_fct(logits_view, active_labels)
                 #print(loss)
