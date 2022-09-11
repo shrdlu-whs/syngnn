@@ -59,6 +59,16 @@ class BertForNer(BertForTokenClassification):
         else:
             return logits
 # %%
+def get_activation_fn(activation):
+    if activation == "relu":
+        return F.relu
+    elif activation == "gelu":
+        return F.gelu
+    elif activation == "sigmoid":
+        return F.sigmoid
+    else:
+        raise RuntimeError("activation should be relu/gelu/sigmoid, not {}".format(activation))
+
 class SynGNNLayer(torch.nn.Module):
     """
     SynGNN Pytorch module
@@ -86,16 +96,7 @@ class SynGNNLayer(torch.nn.Module):
         self.dropout0 = nn.Dropout(dropout)
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
-
-        def _get_activation_fn(activation):
-            if activation == "relu":
-                return F.relu
-            elif activation == "gelu":
-                return F.gelu
-            else:
-                raise RuntimeError("activation should be relu/gelu, not {}".format(activation))
-
-        self.activation = _get_activation_fn(activation)
+        self.activation = get_activation_fn(activation)
     
     def __setstate__(self, state):
         if 'activation' not in state:
@@ -116,9 +117,9 @@ class SynGNNLayer(torch.nn.Module):
         #print(f"After norm: {src.size()}")
         src2, att = self.graph_attn(src, edge_index, edge_attr, return_attention_weights = True)
 
-        #print(f"Graph Att Output src2: {src2.size()}")
+        #print(f"Graph Attention Output src2: {src2.size()}")
         src = src + self.dropout1(src2)
-        #print(f" After resdual connection: {src.size()}")
+        #print(f" After residual connection: {src.size()}")
         src = self.norm1(src)
 
         # Feed-Forward-Network sublayer
@@ -133,6 +134,36 @@ class SynGNNLayer(torch.nn.Module):
         #print(f" After linear output layer: {src.size()}")
         return src, att
 
+# %%
+class HighwayFcNet(nn.Module):
+	"""
+		A more robust fully connected network
+		return: H*T + (1-T)x
+	"""
+	def __init__(self, input_size, activation_type='sigmoid',gate_activation='sigmoid',bias=-1.0): #activation_type is a string containing the name of the activation
+		"""
+        Highway network
+		"""
+		super(HighwayFcNet,self).__init__()
+		self.activation = get_activation_fn(activation_type) #H func
+		#self.gate_activation = get_activation_fn(gate_activation)#T func
+		self.plain = nn.Linear(input_size,input_size)
+		nn.init.xavier_uniform(self.plain.weight)
+		self.gate = nn.Linear(input_size,input_size)
+		self.gate.bias.data.fill_(bias)
+
+    #def __setstate__(self, state):
+        #if 'activation' not in state:
+        #    state['activation'] = get_activation_fn('gelu')
+        #    state['gate_activation'] = get_activation_fn('sigmoid')
+        #super(HighwayFcNet, self).__setstate__(state)
+
+	def forward(self,bert_out, syngnn_out):
+		g_out = self.activation(self.plain(bert_out))
+
+		#t_out = self.gate_activation(self.gate(x))
+
+		return torch.add(torch.mul(g_out,bert_out),torch.mul((1.0-g_out),syngnn_out))
 # %%
 class SynGNN(torch.nn.Module):
     r"""TransformerEncoder is a stack of N encoder layers. 
@@ -172,7 +203,6 @@ class SynGNN(torch.nn.Module):
         for layer in self.layers:
             output, attn = layer(x, edge_index, edge_attr, batch)
             attns.append(attn)
-        #attns = torch.stack(attns)
 
         if self.norm is not None:
             output = self.norm(output)
@@ -209,15 +239,17 @@ class SynBertForNer(nn.Module):
 
         self.bert = BertModel(bert_config)
         self.syngnn = SynGNN(num_node_features, num_labels, num_att_heads, num_edge_attrs, num_layers = num_layers)
-        self.linear_classifier = tg_nn.Linear(num_node_features, num_labels)
+        self.highway = HighwayFcNet(768)
+        self.linear_classifier = tg_nn.Linear(768, num_labels)
         self.norm = tg_nn.LayerNorm(num_labels)
 
     def forward(self, input_ids, syntax_graphs, sentence_graph_idx_maps, token_type_ids=None, attention_mask=None, label_ids=None, label_weights=None, valid_ids=None,attention_mask_label=None):
 
         # Calculate Bert embeddings
         sequence_output = self.bert(input_ids, token_type_ids, attention_mask,head_mask=None)[0]
+
         batch_size,seq_len,feat_dim = sequence_output.shape
-        #print(sequence_output.shape)
+
         '''# Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
         valid_output = torch.zeros(batch_size,seq_len,feat_dim,dtype=torch.float32)
         for batch_idx in range(batch_size):
@@ -239,8 +271,27 @@ class SynBertForNer(nn.Module):
         
         # Calculate syngnn output
         syngnn_output, attn = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr, pyg_data_batch.batch)
-        num_tokens, embedding_dim = syngnn_output.size()
-        #print(syngnn_output.size())
+
+        syngnn_in_bert_format = torch.zeros([batch_size,96, 768], dtype=torch.float)
+        sentence_position = 0
+        sentence_length_ctr = 0
+        for batch_idx in range(batch_size):
+
+            sentence_length = syntax_graphs[batch_idx].x.shape[0]-1
+            for token_idx in range(sentence_length):
+                syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output[sentence_position+token_idx,:].detach()
+                sentence_length_ctr = sentence_length_ctr+1
+            sentence_position = sentence_position+sentence_length
+
+
+        # Process through highway gate
+        highway_output = self.highway(sequence_output, syngnn_in_bert_format)
+        # 
+
+        #print(syngnn_in_bert_format[3][0])
+        #print(syngnn_in_bert_format[3][85])
+        #print(syngnn_in_bert_format[0][0].subtract(syngnn_output[0]))
+        #print(np.array(syngnn_in_bert_format).shape)
 
         # Convert valid_ids mask to Syngnn format: num_tokens*embeddings_size
         # Trim Bert valid ids mask to graph token labels length
@@ -272,11 +323,24 @@ class SynBertForNer(nn.Module):
                     valid_output[valid_idx] = syngnn_output[idx]"""
         # Calculate classifier output
         #valid_output = self.dropout(valid_output)
-        logits = self.linear_classifier(syngnn_output)
-        #print(logits.size())
-        #logits = self.norm(logits)
+        logits = self.linear_classifier(highway_output)
+        
+        if label_ids is not None:
+            loss_fct = nn.CrossEntropyLoss(ignore_index=0)
+            # Only keep active parts of the loss
+            # Ignore padding tokens in loss calculation
+            if attention_mask_label is not None:
+                active_loss = attention_mask_label.view(-1) == 1
+                active_logits = logits.view(-1, self.num_labels)[active_loss]
+                active_labels = label_ids.view(-1)[active_loss]
+                loss = loss_fct(active_logits, active_labels)
+            else:
+                loss = loss_fct(logits.view(-1, self.num_labels), label_ids.view(-1))
+            return loss, logits
+        else:
+            return logits
 
-        # Calculate loss if true labels given
+        """# Calculate loss if true labels given
         if label_ids is not None:
             # Trim Bert label attention mask to graph token labels length
             token_mask_labels = []
@@ -284,18 +348,21 @@ class SynBertForNer(nn.Module):
                 # Find SEP token id in sentence and get index
                 sep_idx = label_ids.tolist()[sentence_idx].index(78)
                 # Find CLS token id in sentence and get index
-                #cls_idx = label_ids.tolist()[sentence_idx].index(77)
+                cls_idx = label_ids.tolist()[sentence_idx].index(77)
                 token_mask_labels_temp = label_mask.tolist()
                 # Ignore SEP token
                 token_mask_labels_temp[sep_idx] = 0
                 # Ignore CLS token
-                #token_mask_labels_temp[cls_idx] = 0
+                token_mask_labels_temp[cls_idx] = 0
                 token_mask_labels.extend(token_mask_labels_temp)
             token_mask_labels = torch.tensor(token_mask_labels)
+
+
 
             logits_view = logits.view(-1, self.num_labels)
             labels_view = label_ids.view(-1)
 
+            #print(label_weights[0])
             # Loss function: do not count labels with index 1, that is tokens labelled with O (=ignore)
             loss_fct = nn.CrossEntropyLoss(ignore_index=0, weight=label_weights[0])
             # Trim Bert labels to contain only graph token labels, ignore padding
@@ -320,4 +387,4 @@ class SynBertForNer(nn.Module):
                 loss = loss_fct(logits_view, labels_view)
             return loss, logits
         else:
-            return logits
+            return logits"""
