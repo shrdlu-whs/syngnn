@@ -19,6 +19,7 @@ import numpy as np
 import os
 import torch.jit as jit
 
+
 # %%
 class BertForNer(BertForTokenClassification):
     """
@@ -26,7 +27,7 @@ class BertForNer(BertForTokenClassification):
     """
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, label_ids=None,valid_ids=None,attention_mask_label=None):
-        
+
         # Calculate new embeddings
         sequence_output = self.bert(input_ids, token_type_ids, attention_mask,head_mask=None)[0]
         batch_size,max_len,feat_dim = sequence_output.shape
@@ -64,7 +65,7 @@ class SynGNNLayer(torch.nn.Module):
     based on Pytorch TransformerEncoderLayer implementing the architecture in paper “Attention Is All You Need”. 
     
     """
-    def __init__(self, dim_in, dim_out, num_att_heads, dim_edge_attrs=None, dropout=0.1, activation="relu", dim_feedforward=2048):
+    def __init__(self, dim_in, dim_out, num_att_heads, dim_edge_attrs=None, dropout=0.1, activation="gelu", dim_feedforward=2048):
         r"""
         Args:
             param dim_in: input dimension
@@ -181,7 +182,6 @@ class SynGNN(torch.nn.Module):
     def add_bert_embeddings_to_graph(self, ptg_graph, pt_embeddings, sentence_graph_idx_map, input_ids):
         graph_ids = []
         for sent_token_idx, pt_embedding in enumerate(pt_embeddings):
-            #embedding = pt_embedding.clone().detach()
 
             if sent_token_idx in sentence_graph_idx_map:
                 # Look up corresponding index in graph for current token embedding
@@ -202,7 +202,7 @@ def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])        
 # %%
 class SynBertForNer(nn.Module):
-    def __init__(self, bert_config, num_node_features, num_labels, num_edge_attrs, num_att_heads, num_layers, device_str=None):
+    def __init__(self, bert_config, num_node_features, num_labels, num_edge_attrs, num_att_heads, num_layers):
 
         super(SynBertForNer, self).__init__()
         self.num_labels = num_labels
@@ -212,12 +212,12 @@ class SynBertForNer(nn.Module):
         self.linear_classifier = tg_nn.Linear(num_node_features, num_labels)
         self.norm = tg_nn.LayerNorm(num_labels)
 
-    def forward(self, input_ids, syntax_graphs, sentence_graph_idx_maps, token_type_ids=None, attention_mask=None, label_ids=None,valid_ids=None,attention_mask_label=None):
+    def forward(self, input_ids, syntax_graphs, sentence_graph_idx_maps, token_type_ids=None, attention_mask=None, label_ids=None, label_weights=None, valid_ids=None,attention_mask_label=None):
 
         # Calculate Bert embeddings
         sequence_output = self.bert(input_ids, token_type_ids, attention_mask,head_mask=None)[0]
         batch_size,seq_len,feat_dim = sequence_output.shape
-
+        #print(sequence_output.shape)
         '''# Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
         valid_output = torch.zeros(batch_size,seq_len,feat_dim,dtype=torch.float32)
         for batch_idx in range(batch_size):
@@ -234,32 +234,48 @@ class SynBertForNer(nn.Module):
         for batch_idx in range(batch_size):
             graphs_with_embeddings.append(self.syngnn.add_bert_embeddings_to_graph(syntax_graphs[batch_idx], sequence_output[batch_idx],sentence_graph_idx_maps[batch_idx], input_ids[batch_idx]))
        
-
-        # Convert syntax graphs to dataset batch
-        #print(graphs_with_embeddings)
-        #print(syntax_graphs[batch_idx])
-        #pyg_data_batch = tg_data.Batch.from_data_list(syntax_graphs)
         pyg_data_batch = tg_data.Batch.from_data_list(graphs_with_embeddings)
         pyg_data_batch.to(torch.device('cpu'))
-        #print(f"Graph Batch: {pyg_data_batch}")
         
         # Calculate syngnn output
         syngnn_output, attn = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr, pyg_data_batch.batch)
-
+        num_tokens, embedding_dim = syngnn_output.size()
         #print(syngnn_output.size())
+
+        # Convert valid_ids mask to Syngnn format: num_tokens*embeddings_size
+        # Trim Bert valid ids mask to graph token labels length
+        """      valid_ids_mask_syngnn = []
+        for sentence_idx, id_mask in enumerate(valid_ids):
+            # Find SEP token id in sentence and get index
+            sep_idx = label_ids.tolist()[sentence_idx].index(78)
+            # Find CLS token id in sentence and get index
+            cls_idx = label_ids.tolist()[sentence_idx].index(77)
+            valid_ids_mask_temp = id_mask.tolist()
+            # Ignore SEP token
+            valid_ids_mask_temp[sep_idx] = 0
+            # Ignore CLS token
+            valid_ids_mask_temp[cls_idx] = 0
+            valid_ids_mask_temp = valid_ids_mask_temp[0:sep_idx]
+            valid_ids_mask_syngnn.extend(valid_ids_mask_temp)
+        valid_ids_mask_syngnn = torch.tensor(valid_ids_mask_syngnn)
+        #print(valid_ids_mask_syngnn.size())
+
+
         # Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
-        valid_output = torch.zeros(batch_size,seq_len,feat_dim,dtype=torch.float32)
-        for batch_idx in range(batch_size):
-            valid_idx = -1
-            for token_idx in range(seq_len):
-                # Only add embedding to output if valid_id mask is 1
-                if valid_ids[batch_idx][token_idx].item() == 1:
+        valid_output = torch.zeros(num_tokens, embedding_dim,dtype=torch.float32)
+        #print(valid_output.size())
+        valid_idx = -1
+        for idx, mask in enumerate(valid_ids_mask_syngnn):
+            # Only add embedding to output if valid_id mask is 1
+            if mask.item() == 1:
                     valid_idx += 1
-                    valid_output[batch_idx][valid_idx] = syngnn_output[batch_idx][token_idx]
+                    valid_output[valid_idx] = syngnn_output[idx]"""
         # Calculate classifier output
-        #syngnn_output = self.dropout(valid_output)
+        #valid_output = self.dropout(valid_output)
         logits = self.linear_classifier(syngnn_output)
-        logits = self.norm(logits)
+        #print(logits.size())
+        #logits = self.norm(logits)
+
         # Calculate loss if true labels given
         if label_ids is not None:
             # Trim Bert label attention mask to graph token labels length
@@ -267,72 +283,39 @@ class SynBertForNer(nn.Module):
             for sentence_idx, label_mask in enumerate(attention_mask_label):
                 # Find SEP token id in sentence and get index
                 sep_idx = label_ids.tolist()[sentence_idx].index(78)
+                # Find CLS token id in sentence and get index
+                #cls_idx = label_ids.tolist()[sentence_idx].index(77)
                 token_mask_labels_temp = label_mask.tolist()
                 # Ignore SEP token
                 token_mask_labels_temp[sep_idx] = 0
+                # Ignore CLS token
+                #token_mask_labels_temp[cls_idx] = 0
                 token_mask_labels.extend(token_mask_labels_temp)
             token_mask_labels = torch.tensor(token_mask_labels)
-
-            """
-            for graph_idx, graph in enumerate(syntax_graphs):
-                token_mask_labels_temp = []
-                token_mask_labels_temp.append(torch.tensor([0]))
-                token_mask_labels_temp.extend([attention_mask_label[graph_idx][1:len(graph.x)-1] for graph_idx, graph in enumerate(syntax_graphs)])
-                padding_size = attention_mask_label.size()[0] - token_mask_labels_temp[0].size()[0]
-                token_mask_labels_temp.extend(torch.zeros(1,padding_size))
-                token_mask_labels.extend(token_mask_labels_temp)
-            print(token_mask_labels)
-            token_mask_labels = torch.cat(token_mask_labels, dim=0)
-            """
 
             logits_view = logits.view(-1, self.num_labels)
             labels_view = label_ids.view(-1)
 
-           
-
             # Loss function: do not count labels with index 1, that is tokens labelled with O (=ignore)
-            loss_fct = nn.CrossEntropyLoss(ignore_index=1)
+            loss_fct = nn.CrossEntropyLoss(ignore_index=0, weight=label_weights[0])
             # Trim Bert labels to contain only graph token labels, ignore padding
             if attention_mask_label is not None:
-                active_loss = token_mask_labels.view(-1) == 1
-                #print(active_loss)
-            #   active_logits = logits_view[active_loss]
-                active_labels = labels_view[active_loss]
-                #print(active_labels.size())
-                #if (active_labels.size()[0] == 121):
-
-                # print("Logits:")
-                # print(logits.size())
-                # print(logits_view.size())
-                # print("Labels:")
-                # print(label_ids.size())
-                # print(active_labels.size())
-                # print("Label att mask")
-                # print(attention_mask_label)
-                # print("Label token mask")
-                # print(token_mask_labels)
-                '''tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-                    print("Tokens sentence:")
-                    for sentence in input_ids:
-                        print(tokenizer.convert_ids_to_tokens(sentence))
-                    #print(sentence)
-                    print("Graph:")
-                    for graph in graphs_with_embeddings:
-                        print(graph)
-                    print(f"Logits: {logits.size()}")'''
-                try:
-                    loss = loss_fct(logits_view, active_labels)
-                    #print(loss)
-                except:
-                    print("Logits:")
-                    print(logits.size())
-                    print(logits_view.size())
-                    print("Labels:")
-                    print(label_ids.size())
-                    print(active_labels.size())
-                    print("Input Ids")
-                    print(input_ids)
-                    print(input_ids.size())
+                active_labels_mask = token_mask_labels.view(-1) == 1
+                active_labels = labels_view[active_labels_mask]
+                loss_fct = nn.CrossEntropyLoss(ignore_index=0)
+                #try:
+                loss = loss_fct(logits_view, active_labels)
+                #print(loss)
+                '''except:
+                print("Logits:")
+                print(logits.size())
+                print(logits_view.size())
+                print("Labels:")
+                print(label_ids.size())
+                print(active_labels.size())
+                print("Input Ids")
+                print(input_ids)
+                print(input_ids.size())'''
 
             else:
                 loss = loss_fct(logits_view, labels_view)
