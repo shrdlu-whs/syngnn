@@ -1,7 +1,10 @@
 import os
+
+# %%
+label_weights_ud = []
 # %%
 class Params:
-    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers):
+    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights):
         self.use_gnn = use_gnn
         self.saved_model_path = saved_model_path
         self.train_model = train_model
@@ -17,6 +20,7 @@ class Params:
         self.num_sentences = num_sentences
         self.num_att_heads = num_att_heads
         self.num_layers = num_layers
+        self.use_label_weights = use_label_weights
 
     # %%
 
@@ -85,7 +89,13 @@ def configureParameters(parameters):
         else:
             num_layers = 2
 
-        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers)
+        # Use weights
+        if(parameters["use_weights"][0] == "True" or str(parameters["use_weights"][0]) == "1"):
+            use_label_weights = True
+        else:
+            use_label_weights = False
+
+        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights)
 
 
 # %%
