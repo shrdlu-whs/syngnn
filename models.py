@@ -18,6 +18,8 @@ import random
 import numpy as np
 import os
 import torch.jit as jit
+from typing import Union, Tuple
+from torch import Tensor
 
 
 # %%
@@ -90,7 +92,10 @@ class SynGNNLayer(torch.nn.Module):
     def __init__(self, dim_in, num_att_heads, dim_edge_attrs=None, dropout=0.1, activation="gelu", dim_feedforward=2048):
         super(SynGNNLayer, self).__init__()
         # Graph attention sublayer
-        self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_in, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=False)
+        print(dim_in)
+        print(dim_edge_attrs)
+        self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_in, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=False).jittable()
+        #self.graph_attn = graph_attn.jittable('(Tuple[int,int], Tuple[int,int], int,int) -> Tensor')
         self.linear1 = tg_nn.Linear(dim_in, dim_feedforward)
         self.linear2 = tg_nn.Linear(dim_feedforward, dim_in)
 
@@ -113,7 +118,7 @@ class SynGNNLayer(torch.nn.Module):
         super(SynGNNLayer, self).__setstate__(state)
 
     
-    def forward(self, x, edge_index, edge_attr):
+    def forward(self, x: Tensor, edge_index: Tensor, edge_attr: Tensor) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
         # Graph attention sublayer
         src = self.norm0(x)
         src2, att = self.graph_attn(src, edge_index, edge_attr, return_attention_weights = True)
@@ -131,6 +136,7 @@ class SynGNNLayer(torch.nn.Module):
         #src = self.linear_classifier(src)
         #src = self.norm3(src)
         #print(f" After linear output layer: {src.size()}")
+        #print(att)
         return src, att
 
 # %%
@@ -188,32 +194,32 @@ class SynGNN(torch.nn.Module):
         attns = []
 
         for layer in self.layers:
-            output, attn = layer(x, edge_index, edge_attr)
-            attns.append(attn)
+            output, _ = layer(x, edge_index, edge_attr)
+            #attns.append(attn)
 
         if self.norm is not None:
             output = self.norm(output)
 
         return output, attns
     
-    def add_bert_embeddings_to_graph(self, ptg_graph, pt_embeddings, sentence_graph_idx_map, input_ids):
-        graph_ids = []
-        for sent_token_idx, pt_embedding in enumerate(pt_embeddings):
 
-            if sent_token_idx in sentence_graph_idx_map:
-                # Look up corresponding index in graph for current token embedding
-                graph_token_idx = sentence_graph_idx_map[sent_token_idx]
-                #print(ptg_graph.x[graph_idx])
-                #ptg_graph.x.resize(ptg_graph.num_nodes, embedding.size())
-                ptg_graph.x[graph_token_idx] = pt_embedding
-                graph_ids.append(input_ids[sent_token_idx])
+def add_bert_embeddings_to_graph(ptg_graph, pt_embeddings, sentence_graph_idx_map, input_ids):
+    graph_ids = []
+    for sent_token_idx, pt_embedding in enumerate(pt_embeddings):
 
-        """print("Tokens graph:")
-        print(tokenizer.convert_ids_to_tokens(graph_ids))
-        print("Sentence_graph_idx_map:")
-        print(sentence_graph_idx_map)"""
-        return ptg_graph
+        if sent_token_idx in sentence_graph_idx_map:
+            # Look up corresponding index in graph for current token embedding
+            graph_token_idx = sentence_graph_idx_map[sent_token_idx]
+            #print(ptg_graph.x[graph_idx])
+            #ptg_graph.x.resize(ptg_graph.num_nodes, embedding.size())
+            ptg_graph.x[graph_token_idx] = pt_embedding
+            graph_ids.append(input_ids[sent_token_idx])
 
+    """print("Tokens graph:")
+    print(tokenizer.convert_ids_to_tokens(graph_ids))
+    print("Sentence_graph_idx_map:")
+    print(sentence_graph_idx_map)"""
+    return ptg_graph
 
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])        
@@ -230,7 +236,7 @@ class SynBertForNer(nn.Module):
         self.label_weights = label_weights
 
         self.bert = BertModel(bert_config)
-        self.syngnn = SynGNN(self.num_node_features,  self.num_att_heads, self.num_edge_attrs, num_layers = self.num_layers)
+        self.syngnn = torch.jit.script(SynGNN(self.num_node_features,  self.num_att_heads, self.num_edge_attrs, num_layers = self.num_layers))
         self.highway =  torch.jit.script(HighwayFcNet(self.num_node_features))
         self.linear_classifier = tg_nn.Linear(self.num_node_features, self.num_labels)
         self.norm = tg_nn.LayerNorm(self.num_labels)
@@ -261,7 +267,7 @@ class SynBertForNer(nn.Module):
         graphs_with_embeddings = []
 
         for batch_idx in range(batch_size):
-            graphs_with_embeddings.append(self.syngnn.add_bert_embeddings_to_graph(syntax_graphs[batch_idx], sequence_output[batch_idx],sentence_graph_idx_maps[batch_idx], input_ids[batch_idx]))
+            graphs_with_embeddings.append(add_bert_embeddings_to_graph(syntax_graphs[batch_idx], sequence_output[batch_idx],sentence_graph_idx_maps[batch_idx], input_ids[batch_idx]))
        
         pyg_data_batch = tg_data.Batch.from_data_list(graphs_with_embeddings)
         pyg_data_batch.to(torch.device('cpu'))
@@ -285,31 +291,8 @@ class SynBertForNer(nn.Module):
         highway_output = self.highway(sequence_output, syngnn_in_bert_format)
         # 
 
-        #print(syngnn_in_bert_format[3][0])
-        #print(syngnn_in_bert_format[3][85])
-        #print(syngnn_in_bert_format[0][0].subtract(syngnn_output[0]))
-        #print(np.array(syngnn_in_bert_format).shape)
 
-        # Convert valid_ids mask to Syngnn format: num_tokens*embeddings_size
-        # Trim Bert valid ids mask to graph token labels length
-        """      valid_ids_mask_syngnn = []
-        for sentence_idx, id_mask in enumerate(valid_ids):
-            # Find SEP token id in sentence and get index
-            sep_idx = label_ids.tolist()[sentence_idx].index(78)
-            # Find CLS token id in sentence and get index
-            cls_idx = label_ids.tolist()[sentence_idx].index(77)
-            valid_ids_mask_temp = id_mask.tolist()
-            # Ignore SEP token
-            valid_ids_mask_temp[sep_idx] = 0
-            # Ignore CLS token
-            valid_ids_mask_temp[cls_idx] = 0
-            valid_ids_mask_temp = valid_ids_mask_temp[0:sep_idx]
-            valid_ids_mask_syngnn.extend(valid_ids_mask_temp)
-        valid_ids_mask_syngnn = torch.tensor(valid_ids_mask_syngnn)
-        #print(valid_ids_mask_syngnn.size())
-
-
-        # Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
+        """# Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
         valid_output = torch.zeros(num_tokens, embedding_dim,dtype=torch.float32)
         #print(valid_output.size())
         valid_idx = -1
