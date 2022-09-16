@@ -1,2 +1,2 @@
-train_model;epochs;batch_size;num_threads;learning_rate;saved_model_path;data_path;task;num_sentences;use_gnn;max_grad_norm;num_layers;num_att_heads;seq_len
-True;15;32;24;2e-5;bert-base-cased;./data/ud/;ner;0;True;0.0;4;2;96
+train_model;epochs;batch_size;num_threads;learning_rate;saved_model_path;data_path;task;num_sentences;use_gnn;max_grad_norm;num_layers;num_att_heads;seq_len;use_weights
+True;10;32;24;2e-5;bert-base-cased;./data/ud/;ner;0;False;0.0;4;2;96;True
