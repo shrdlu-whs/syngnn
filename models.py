@@ -223,7 +223,7 @@ def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])        
 # %%
 class SynBertForNer(nn.Module):
-    def __init__(self, bert_config, num_node_features, num_labels, num_edge_attrs, num_att_heads, num_layers, label_weights):
+    def __init__(self, bert_config, bert_model, num_node_features, num_labels, num_edge_attrs, num_att_heads, num_layers, label_weights):
 
         super(SynBertForNer, self).__init__()
         self.num_node_features = num_node_features
@@ -232,8 +232,12 @@ class SynBertForNer(nn.Module):
         self.num_att_heads = num_att_heads
         self.num_layers = num_layers
         self.label_weights = label_weights
-
-        self.bert = BertModel(bert_config)
+        # Load pretrained Bert model
+        if bert_model !=None:
+            self.bert = BertModel.from_pretrained(bert_model, config = bert_config)
+        # Initialize new Bert model
+        else:
+            self.bert = BertModel(bert_config)
         self.syngnn = torch.jit.script(SynGNN(self.num_node_features,  self.num_att_heads, self.num_edge_attrs, num_layers = self.num_layers))
         self.highway =  torch.jit.script(HighwayFcNet(self.num_node_features))
         self.linear_classifier = tg_nn.Linear(self.num_node_features, self.num_labels)

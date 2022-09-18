@@ -1,5 +1,14 @@
 import os
 
+
+# %%
+# Available Bert configurations
+saved_models = [
+    "bert-base-cased",
+    "bert-base-uncased",
+    "./trained_models/ner/bert/ner_bert-base-cased_E5_batches32_LR2e-05_SL96_GN0-0_0",
+    "./trained_models/ner/bert/ner_bert-base-cased_E0_batches2_LR2e-05_SL96_GN0-0_0"
+]
 # %%
 label_weights_ud = []
 # %%
@@ -28,11 +37,19 @@ def configureParameters(parameters):
         # Saved model path
         parameters["saved_model_path"] = parameters["saved_model_path"].astype('string') 
         saved_model_path = parameters["saved_model_path"][0]
+
+        # Check if saved model path is index to saved_models array
+        try:
+            if int(saved_model_path) < len(saved_models):
+                saved_model_path = saved_models[int(saved_model_path)]
+                print(f"Loading model from path {saved_model_path}")
+        except:
+            print(f"Loading model from path {saved_model_path}")
         # Extract tokenizer from saved model path
         if(len(saved_model_path.split("/")) > 1 ):
             transformer_name = saved_model_path.split("/")[-1]
-            tokenizer = transformer_name.split("_")[0]
-            sequence_length = int(transformer_name.split("_")[-1].replace("SL",""))
+            tokenizer = transformer_name.split("_")[1]
+            sequence_length = int(transformer_name.split("_")[5].replace("SL",""))
         else:
             tokenizer = saved_model_path
             # sequence length norm parameter
