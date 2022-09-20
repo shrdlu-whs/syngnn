@@ -243,7 +243,7 @@ class SynBertForNer(nn.Module):
         self.linear_classifier = tg_nn.Linear(self.num_node_features, self.num_labels)
         self.norm = tg_nn.LayerNorm(self.num_labels)
 
-        print(self.label_weights)
+        #print(self.label_weights)
 
         # Initialize layers
         nn.init.xavier_uniform_(self.linear_classifier.weight)
@@ -276,18 +276,34 @@ class SynBertForNer(nn.Module):
         
         # Calculate syngnn output
         syngnn_output, attn = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr)
+        # Convert Syngnn output to sequence length*embedding_length to be compatible with Bert
+        #syngnn_in_bert_format = torch.zeros([batch_size,96, 768], dtype=torch.float)
+        #sentence_position = 0
+        #sentence_length_ctr = 0
+        #for batch_idx in range(batch_size):
 
-        syngnn_in_bert_format = torch.zeros([batch_size,96, 768], dtype=torch.float)
+        #    sentence_length = syntax_graphs[batch_idx].x.shape[0]-1
+        #    for token_idx in range(sentence_length):
+        #        syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output[sentence_position+token_idx,:].detach()
+        #        sentence_length_ctr = sentence_length_ctr+1
+        #    sentence_position = sentence_position+sentence_length
+
+        # Numpy version
+        syngnn_in_bert_format = np.zeros((batch_size,96, 768), dtype=np.float64)
+        syngnn_output = syngnn_output.detach().numpy()
         sentence_position = 0
         sentence_length_ctr = 0
         for batch_idx in range(batch_size):
 
             sentence_length = syntax_graphs[batch_idx].x.shape[0]-1
             for token_idx in range(sentence_length):
-                syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output[sentence_position+token_idx,:].detach()
+                syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output[sentence_position+token_idx,:]
                 sentence_length_ctr = sentence_length_ctr+1
             sentence_position = sentence_position+sentence_length
 
+        #print(syngnn_in_bert_format[2][0])
+        #print(syngnn_in_bert_format[2][70])
+        syngnn_in_bert_format = torch.tensor(syngnn_in_bert_format, dtype=torch.float)
 
         # Process through highway gate
         highway_output = self.highway(sequence_output, syngnn_in_bert_format)
