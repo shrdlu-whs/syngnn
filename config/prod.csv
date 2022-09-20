@@ -1,2 +1,2 @@
-train_model;epochs;batch_size;num_threads;learning_rate;saved_model_path;data_path;task;num_sentences;use_gnn;max_grad_norm;num_layers;num_att_heads;seq_len;use_weights
-True;10;32;24;2e-5;2;./data/ud/;ner;0;True;0.0;4;2;96;True
+train_model;epochs;batch_size;num_threads;learning_rate;saved_model_path;data_path;task;num_sentences;use_gnn;max_grad_norm;num_layers;num_att_heads;seq_len;use_weights;use_grammar
+True;8;64;24;2e-5;2;./data/ud/;ner;0;True;0.0;4;2;96;True;dep

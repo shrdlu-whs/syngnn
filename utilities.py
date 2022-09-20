@@ -13,7 +13,7 @@ saved_models = [
 label_weights_ud = []
 # %%
 class Params:
-    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights):
+    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar):
         self.use_gnn = use_gnn
         self.saved_model_path = saved_model_path
         self.train_model = train_model
@@ -30,6 +30,8 @@ class Params:
         self.num_att_heads = num_att_heads
         self.num_layers = num_layers
         self.use_label_weights = use_label_weights
+        self.use_grammar = use_grammar
+        self.label_weights_clip = 0
 
     # %%
 
@@ -112,7 +114,17 @@ def configureParameters(parameters):
         else:
             use_label_weights = False
 
-        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights)
+        # Use grammar syntax graphs
+        if(parameters["use_grammar"][0] == "dep" or str(parameters["use_grammar"][0]) == "const"):
+            use_grammar = parameters["use_grammar"][0]
+        else:
+            print("Select one of 'dep' for dependency style syntax trees or 'const' for constituency style syntax trees")
+            exit()
+
+
+
+
+        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar)
 
 
 # %%

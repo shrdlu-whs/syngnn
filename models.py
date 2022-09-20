@@ -275,35 +275,25 @@ class SynBertForNer(nn.Module):
         pyg_data_batch.to(torch.device('cpu'))
         
         # Calculate syngnn output
-        syngnn_output, attn = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr)
+        syngnn_output, _ = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr)
         # Convert Syngnn output to sequence length*embedding_length to be compatible with Bert
-        #syngnn_in_bert_format = torch.zeros([batch_size,96, 768], dtype=torch.float)
-        #sentence_position = 0
-        #sentence_length_ctr = 0
-        #for batch_idx in range(batch_size):
-
-        #    sentence_length = syntax_graphs[batch_idx].x.shape[0]-1
-        #    for token_idx in range(sentence_length):
-        #        syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output[sentence_position+token_idx,:].detach()
-        #        sentence_length_ctr = sentence_length_ctr+1
-        #    sentence_position = sentence_position+sentence_length
-
         # Numpy version
         syngnn_in_bert_format = np.zeros((batch_size,96, 768), dtype=np.float64)
-        syngnn_output = syngnn_output.detach().numpy()
+        syngnn_output_np = syngnn_output.detach().numpy().copy()
         sentence_position = 0
         sentence_length_ctr = 0
         for batch_idx in range(batch_size):
 
             sentence_length = syntax_graphs[batch_idx].x.shape[0]-1
             for token_idx in range(sentence_length):
-                syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output[sentence_position+token_idx,:]
+                syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output_np[sentence_position+token_idx,:]
                 sentence_length_ctr = sentence_length_ctr+1
             sentence_position = sentence_position+sentence_length
 
         #print(syngnn_in_bert_format[2][0])
         #print(syngnn_in_bert_format[2][70])
         syngnn_in_bert_format = torch.tensor(syngnn_in_bert_format, dtype=torch.float)
+        syngnn_in_bert_format.to(torch.device('cpu'))
 
         # Process through highway gate
         highway_output = self.highway(sequence_output, syngnn_in_bert_format)
@@ -325,6 +315,7 @@ class SynBertForNer(nn.Module):
         
         if label_ids is not None:
             loss_fct = nn.CrossEntropyLoss(ignore_index=0, weight=self.label_weights)
+            #loss_fct = nn.CrossEntropyLoss(ignore_index=0)
             #loss_fct = nn.CrossEntropyLoss(ignore_index=0)
             # Only keep active parts of the loss
             # Ignore padding tokens in loss calculation
