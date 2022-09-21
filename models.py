@@ -148,7 +148,7 @@ class HighwayFcNet(nn.Module):
 	def __init__(self, input_size, activation_type='sigmoid',bias=-1.0): #activation_type is a string containing the name of the activation
 
 		super(HighwayFcNet,self).__init__()
-		self.activation = get_activation_fn(activation_type) #H func
+		self.activation = get_activation_fn(activation_type) 
 		self.plain = nn.Linear(input_size,input_size)
 
         # Initialize layers
@@ -156,7 +156,7 @@ class HighwayFcNet(nn.Module):
 
 	def forward(self,bert_out, syngnn_out):
 		g_out = self.activation(self.plain(bert_out))
-		return torch.add(torch.mul(g_out,bert_out),torch.mul((1.0-g_out),syngnn_out))
+		return torch.add(torch.mul(g_out,bert_out),torch.mul((torch.sub(g_out,1)),syngnn_out))
 # %%
 class SynGNN(torch.nn.Module):
     r"""TransformerEncoder is a stack of N encoder layers. 
@@ -256,7 +256,9 @@ class SynBertForNer(nn.Module):
         sequence_output = self.bert(input_ids, token_type_ids, attention_mask,head_mask=None)[0]
 
         batch_size,seq_len,feat_dim = sequence_output.shape
-
+        #print(batch_size)
+        #print(seq_len)
+        #print(feat_dim)
         '''# Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
         valid_output = torch.zeros(batch_size,seq_len,feat_dim,dtype=torch.float32)
         for batch_idx in range(batch_size):
@@ -280,7 +282,7 @@ class SynBertForNer(nn.Module):
         syngnn_output, _ = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr)
         # Convert Syngnn output to sequence length*embedding_length to be compatible with Bert
         # Numpy version
-        syngnn_in_bert_format = np.zeros((batch_size,96, 768), dtype=np.float64)
+        syngnn_in_bert_format = np.zeros((batch_size,seq_len, feat_dim), dtype=np.float64)
         syngnn_output_np = syngnn_output.detach().numpy().copy()
         sentence_position = 0
         sentence_length_ctr = 0

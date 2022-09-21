@@ -32,8 +32,8 @@ class Params:
         self.use_label_weights = use_label_weights
         self.use_grammar = use_grammar
         self.label_weights_clip = 50
-        self.lr_decay = 0.15
-        self.lr_decay_end = 7
+        self.lr_decay = 0.3
+        self.lr_decay_end = 5
 
     # %%
 
