@@ -31,7 +31,7 @@ class Params:
         self.num_layers = num_layers
         self.use_label_weights = use_label_weights
         self.use_grammar = use_grammar
-        self.label_weights_clip = 0
+        self.label_weights_clip = 50
         self.lr_decay = 0.15
         self.lr_decay_end = 7
 

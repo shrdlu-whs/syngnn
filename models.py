@@ -23,6 +23,8 @@ from torch import Tensor
 
 
 # %%
+
+# %%
 class BertForNer(BertForTokenClassification):
     """
     Adapted from Huggingface BertForTokenClassification
