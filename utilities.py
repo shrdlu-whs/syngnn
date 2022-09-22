@@ -7,7 +7,8 @@ saved_models = [
     "bert-base-cased",
     "bert-base-uncased",
     "./trained_models/ner/bert/ner_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0",
-    "./trained_models/ner/bert/ner_bert-base-cased_E0_batches2_LR2e-05_SL96_GN0-0_0"
+    "./trained_models/ner/bert/ner_bert-base-cased_E0_batches2_LR2e-05_SL96_GN0-0_0",
+    "./trained_models/mlm/bert/09_22_bert-base-cased_E5_batches32_LR2e-05_SL96_GN0-0_1"
 ]
 # %%
 label_weights_ud = []
@@ -52,8 +53,11 @@ def configureParameters(parameters):
         # Extract tokenizer from saved model path
         if(len(saved_model_path.split("/")) > 1 ):
             transformer_name = saved_model_path.split("/")[-1]
-            tokenizer = transformer_name.split("_")[1]
-            sequence_length = int(transformer_name.split("_")[5].replace("SL",""))
+            model_config = transformer_name.split("_")
+            tokenizer = [item for item in model_config if item.startswith('bert')][0]
+            #tokenizer = transformer_name.split("_")[1]
+            sequence_length = [int(item.replace("SL", "")) for item in model_config if item.startswith('SL')][0]
+            #sequence_length = int(transformer_name.split("_")[5].replace("SL",""))
         else:
             tokenizer = saved_model_path
             # sequence length norm parameter
