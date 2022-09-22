@@ -251,7 +251,8 @@ class SynBertForNer(nn.Module):
         nn.init.xavier_uniform_(self.linear_classifier.weight)
 
     def forward(self, input_ids, syntax_graphs, sentence_graph_idx_maps, token_type_ids=None, attention_mask=None, label_ids=None, valid_ids=None,attention_mask_label=None):
-
+        #print(label_ids)
+        #print(attention_mask_label)
         # Calculate Bert embeddings
         sequence_output = self.bert(input_ids, token_type_ids, attention_mask,head_mask=None)[0]
 
@@ -304,29 +305,41 @@ class SynBertForNer(nn.Module):
         # 
 
 
-        """# Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
-        valid_output = torch.zeros(num_tokens, embedding_dim,dtype=torch.float32)
-        #print(valid_output.size())
-        valid_idx = -1
-        for idx, mask in enumerate(valid_ids_mask_syngnn):
-            # Only add embedding to output if valid_id mask is 1
-            if mask.item() == 1:
+        # Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
+        valid_output = torch.zeros(batch_size,seq_len,feat_dim,dtype=torch.float32)
+        for batch_idx in range(batch_size):
+            valid_idx = -1
+            for token_idx in range(seq_len):
+                # Only add embedding to output if valid_id mask is 1
+                if attention_mask[batch_idx][token_idx].item() == 1:
                     valid_idx += 1
-                    valid_output[valid_idx] = syngnn_output[idx]"""
+                    valid_output[batch_idx][valid_idx] = highway_output[batch_idx][token_idx]
+
         # Calculate classifier output
         #valid_output = self.dropout(valid_output)
-        logits = self.linear_classifier(highway_output)
+        logits = self.linear_classifier(valid_output)
+        logits = self.norm(logits)
+        #print(self.label_weights)
         
         if label_ids is not None:
-            loss_fct = nn.CrossEntropyLoss(ignore_index=0, weight=self.label_weights)
+            # For NER
+            #loss_fct = nn.CrossEntropyLoss(ignore_index=0, weight=self.label_weights)
+            # For MLM
+            loss_fct = nn.CrossEntropyLoss(weight=self.label_weights)
             #loss_fct = nn.CrossEntropyLoss(ignore_index=0)
             #loss_fct = nn.CrossEntropyLoss(ignore_index=0)
             # Only keep active parts of the loss
+            #TODO: NER
+            #if attention_mask_labels is not None:
             # Ignore padding tokens in loss calculation
-            if attention_mask_label is not None:
-                active_loss = attention_mask_label.view(-1) == 1
+            if attention_mask is not None:
+                #print(attention_mask)
+                active_loss = attention_mask.view(-1) == 1
                 active_logits = logits.view(-1, self.num_labels)[active_loss]
                 active_labels = label_ids.view(-1)[active_loss]
+                #print(active_labels.size())
+                #print(active_logits.size())
+                #print(active_labels)
                 loss = loss_fct(active_logits, active_labels)
             else:
                 loss = loss_fct(logits.view(-1, self.num_labels), label_ids.view(-1))
