@@ -48,7 +48,7 @@ print(f"PID: {PID}, PGID: {PGID}", flush=True)
 data_path_dev = "./data/original/ud/UD_English-GUM/"
 data_path = "./data/original/ud/UD_English-GUM"
 # BERT tokenizer to use:
-tokenizer_name = 'bert-base-cased'
+tokenizer_name = 'bert-base-uncased'
 # Set of syntactic dependency tags
 dependency_tags = ["-","sub","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","obj","iobj","csubj","csubj:pass","csubj:outer","ccomp","xcomp","nummod","appos","nmod","nmod:npmod","nmod:tmod","nmod:poss","acl","acl:relcl","amod","det","det:predet","case","obl","obl:npmod","obl:tmod","advcl","advmod","compound","compound:prt","fixed","flat","flat:foreign","goeswith","vocative","discourse","expl","aux","aux:pass","cop","mark","conj","cc","cc:preconj","parataxis","list","dislocated","orphan","reparandum", "obl:agent"]
 
@@ -474,7 +474,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
   print(f"Num syntax graphs created: {len(syntax_graphs)}")
   print(f"Num processed sentences: {len(processed_sentences)}")
   # Save processed corpus text
-  filename_text = ud_file.split(".")[0] + f".txt"
+  filename_text = ud_file.split(".")[0] + f"-{tokenizer_name}.txt"
   filename_text = filename_text.replace("original/","")
 
   dirname = os.path.dirname(filename_text)
@@ -485,7 +485,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     output.write("\n".join(processed_sentences))
 
   # Save list of Pytorch geometric data objects
-  filename_syntree = filename_text.split(".")[0] + f"-{tokenizer_name}.syntree"
+  filename_syntree = filename_text.split(".")[0] + f".syntree"
 
   dirname = os.path.dirname(filename_syntree)
   if not os.path.exists(dirname):

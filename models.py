@@ -1,5 +1,4 @@
 # %%
-from ast import Try
 from transformers import BertTokenizer, BertForMaskedLM, BertForTokenClassification, BertConfig, BertModel
 import torch
 import torch.nn as nn
@@ -225,7 +224,7 @@ def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])        
 # %%
 class SynBertForNer(nn.Module):
-    def __init__(self, bert_config, bert_model, num_node_features, num_labels, num_edge_attrs, num_att_heads, num_layers, label_weights):
+    def __init__(self, bert_config, bert_model, num_node_features, num_labels, num_edge_attrs, num_att_heads, num_layers, label_weights, task):
 
         super(SynBertForNer, self).__init__()
         self.num_node_features = num_node_features
@@ -234,6 +233,7 @@ class SynBertForNer(nn.Module):
         self.num_att_heads = num_att_heads
         self.num_layers = num_layers
         self.label_weights = label_weights
+        self.task=task
         # Load pretrained Bert model
         if bert_model !=None:
             self.bert = BertModel.from_pretrained(bert_model, config = bert_config)
@@ -323,23 +323,19 @@ class SynBertForNer(nn.Module):
         
         if label_ids is not None:
             # For NER
-            #loss_fct = nn.CrossEntropyLoss(ignore_index=0, weight=self.label_weights)
+            if self.task == 'ner':
+                loss_fct = nn.CrossEntropyLoss(ignore_index=0, weight=self.label_weights)
+                mask = attention_mask_label
+            else:
             # For MLM
-            loss_fct = nn.CrossEntropyLoss(weight=self.label_weights)
-            #loss_fct = nn.CrossEntropyLoss(ignore_index=0)
-            #loss_fct = nn.CrossEntropyLoss(ignore_index=0)
+                loss_fct = nn.CrossEntropyLoss(weight=self.label_weights)
+                mask = attention_mask
             # Only keep active parts of the loss
-            #TODO: NER
-            #if attention_mask_labels is not None:
             # Ignore padding tokens in loss calculation
-            if attention_mask is not None:
-                #print(attention_mask)
+            if mask is not None:
                 active_loss = attention_mask.view(-1) == 1
                 active_logits = logits.view(-1, self.num_labels)[active_loss]
                 active_labels = label_ids.view(-1)[active_loss]
-                #print(active_labels.size())
-                #print(active_logits.size())
-                #print(active_labels)
                 loss = loss_fct(active_logits, active_labels)
             else:
                 loss = loss_fct(logits.view(-1, self.num_labels), label_ids.view(-1))
