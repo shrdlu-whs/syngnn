@@ -23,6 +23,12 @@ then
     nohup python3 ./data_preprocessing_dep_ud.py > ./logs/data_preprocessing_ud.log & echo $!
 fi
 
+if [ $1 == "preprocessing_ice" ];
+then
+    rm ./logs/data_preprocessing_const_ice.log
+    nohup python3 ./data_preprocessing_const_icegb.py > ./logs/data_preprocessing_const_ice.log & echo $!
+fi
+
 if [ $1 == "nertagging" ];
 then
     rm ./logs/ner_tagging.log

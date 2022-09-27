@@ -274,8 +274,9 @@ class Node:
         else:
             return key
 
-for filename in glob.iglob(data_path + '**/printed_*.tre', recursive=True):
+for filename in glob.iglob(data_path + '**/written_*.tre', recursive=True):
   with open(filename, encoding='cp1252') as ice_file:
+    syntax_graphs = []
     raw_sentences = []
     ice_filepath = os.path.abspath(filename)
     ice_filename = os.path.basename(ice_filepath)
