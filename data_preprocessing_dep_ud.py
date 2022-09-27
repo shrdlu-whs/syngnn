@@ -24,8 +24,8 @@ import glob
 import pickle
 import importlib
 import nltk
-from nltk.tokenize import word_tokenize
-nltk.download('punkt')
+#from nltk.tokenize import word_tokenize
+#nltk.download('punkt')
 import utilities_data_preprocessing as utils
 
 # Reload utils library if changed
@@ -73,10 +73,6 @@ def dep_tree_to_pytorch_geom(tree):
     if( int(token.id) != 0):
         edges_start.append(int(token.head))
         edges_end.append(int(token.id))
-        #edges_start.append(int(token.id))
-        #edges_end.append(int(token.head))
-
-    #print(f"{token.head}->{token.id}, {token.upos}, {token.form}, {token.deprel}")
 
     for subtree in tree.__iter__():
         dep_tree_to_pytorch_geom(subtree)

@@ -1,2 +1,2 @@
 train_model;epochs;batch_size;num_threads;learning_rate;saved_model_path;data_path;task;num_sentences;use_gnn;max_grad_norm;num_layers;num_att_heads;seq_len;use_weights;use_grammar
-True;3;5;4;2e-4;1;./data/ud/UD_English-GUM/;ner;50;True;0.0;4;2;96;True;dep
+True;2;2;4;2e-4;1;./data/ice-gb/;ner;0;True;0.0;4;2;96;True;const

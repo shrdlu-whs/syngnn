@@ -17,7 +17,8 @@ import random
 import numpy as np
 import os
 import torch.jit as jit
-from typing import Union, Tuple
+from typing import Union, Tuple, overload
+#from __future__ import annotations
 from torch import Tensor
 
 
@@ -88,8 +89,9 @@ def get_activation_fn(activation):
         return torch.nn.Sigmoid()
     else:
         raise RuntimeError("activation should be relu/gelu/sigmoid, not {}".format(activation))
-
-class SynGNNLayer(torch.nn.Module):
+# %%
+# SynGNN Layer with edge attributes
+class SynGNNLayer_EA(torch.nn.Module):
     def __init__(self, dim_in, num_att_heads, dim_edge_attrs=None, dropout=0.1, activation="gelu", dim_feedforward=2048):
         super(SynGNNLayer, self).__init__()
         # Graph attention sublayer
@@ -116,11 +118,66 @@ class SynGNNLayer(torch.nn.Module):
             state['activation'] = torch.nn.GELU()
         super(SynGNNLayer, self).__setstate__(state)
 
-    
+
+
     def forward(self, x: Tensor, edge_index: Tensor, edge_attr: Tensor) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
         # Graph attention sublayer
         src = self.norm0(x)
         src2, att = self.graph_attn(src, edge_index, edge_attr, return_attention_weights = True)
+        
+        #src2, att = self.graph_attn(src, edge_index, return_attention_weights = True)
+        #print(f"Graph Attention Output src2: {src2.size()}")
+        src = src + self.dropout1(src2)
+        #print(f" After residual connection: {src.size()}")
+        src = self.norm1(src)
+        # Feed-Forward-Network sublayer
+        src2 = self.linear2(self.dropout0(self.activation(self.linear1(src))))
+
+        #print(f" After linear layer 2: {src2.size()}")
+        src = src + self.dropout2(src2)
+        #print(f" After residual connection: {src.size()}")
+        src = self.norm2(src)
+        #src = self.linear_classifier(src)
+        #src = self.norm3(src)
+        #print(f" After linear output layer: {src.size()}")
+        #print(att)
+        return src, att
+# %%
+# SynGNN Layer without edge attributes
+class SynGNNLayer(torch.nn.Module):
+    def __init__(self, dim_in, num_att_heads, dropout=0.1, activation="gelu", dim_feedforward=2048):
+        super(SynGNNLayer, self).__init__()
+        # Graph attention sublayer
+        self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_in, heads=num_att_heads, concat=False).jittable()
+        self.linear1 = tg_nn.Linear(dim_in, dim_feedforward)
+        self.linear2 = tg_nn.Linear(dim_feedforward, dim_in)
+
+        # Initialize layers
+        nn.init.xavier_uniform_(self.linear1.weight)
+        nn.init.xavier_uniform_(self.linear2.weight)
+
+        self.norm0 = tg_nn.LayerNorm(dim_in)
+        self.norm1 = tg_nn.LayerNorm(dim_in)
+        self.norm2 = tg_nn.LayerNorm(dim_in)
+
+        self.dropout0 = nn.Dropout(dropout)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.activation = get_activation_fn(activation)
+    
+    def __setstate__(self, state):
+        if 'activation' not in state:
+            state['activation'] = torch.nn.GELU()
+        super(SynGNNLayer, self).__setstate__(state)
+
+
+
+    def forward(self, x: Tensor, edge_index: Tensor) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+        # Graph attention sublayer
+        src = self.norm0(x)
+        src2, att = self.graph_attn(src, edge_index, return_attention_weights = True)
+        
+        #src2, att = self.graph_attn(src, edge_index, return_attention_weights = True)
         #print(f"Graph Attention Output src2: {src2.size()}")
         src = src + self.dropout1(src2)
         #print(f" After residual connection: {src.size()}")
@@ -172,16 +229,63 @@ class SynGNN(torch.nn.Module):
     """
     __constants__ = ['norm']
 
-    def __init__(self, num_node_features, num_att_heads, num_edge_attrs, num_layers, norm=None):
+    def __init__(self, num_node_features, num_att_heads, num_layers, norm=None):
         
         super(SynGNN, self).__init__()
-        syngnn_layer = SynGNNLayer(num_node_features, num_att_heads, num_edge_attrs)
+        print("Creating SynGNN layer without EA")
+        syngnn_layer = SynGNNLayer(num_node_features, num_att_heads)
+       
         self.layers = _get_clones(syngnn_layer, num_layers)
         self.num_layers = num_layers
         self.norm = norm
 
     
-    def forward(self, x, edge_index, edge_attr):
+    def forward(self, x: Tensor, edge_index: Tensor):
+        r"""Pass the input through the encoder layers in turn.
+        Args:
+            x: node features
+            edge_index: graph edges
+            edge_attr: graph edge attributes
+            batch: current batch
+        """
+        output = x
+        attns = []
+
+        for layer in self.layers:
+            output, _ = layer(x, edge_index)
+            #attns.append(attn)
+
+        if self.norm is not None:
+            output = self.norm(output)
+
+        return output, attns
+# %% 
+class SynGNN_EA(torch.nn.Module):
+    r"""TransformerEncoder is a stack of N encoder layers. 
+    Based on Huggingface Pytorch implementation
+    Args:
+        encoder_layer: an instance of the TransformerEncoderLayer() class (required).
+        num_layers: the number of sub-encoder-layers in the encoder (required).
+        norm: the layer normalization component (optional).
+    Examples::
+        >>> encoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=8)
+        >>> transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=6)
+        >>> src = torch.rand(10, 32, 512)
+        >>> out = transformer_encoder(src)
+    """
+    __constants__ = ['norm']
+
+    def __init__(self, num_node_features, num_att_heads, num_edge_attrs, num_layers, norm=None):
+        
+        super(SynGNN_EA, self).__init__()
+
+        syngnn_layer = SynGNNLayer_EA(num_node_features, num_att_heads, num_edge_attrs)
+        self.layers = _get_clones(syngnn_layer, num_layers)
+        self.num_layers = num_layers
+        self.norm = norm
+
+    
+    def forward(self, x: Tensor, edge_index: Tensor, edge_attr:Tensor):
         r"""Pass the input through the encoder layers in turn.
         Args:
             x: node features
@@ -240,7 +344,10 @@ class SynBertForNer(nn.Module):
         # Initialize new Bert model
         else:
             self.bert = BertModel(bert_config)
-        self.syngnn = torch.jit.script(SynGNN(self.num_node_features,  self.num_att_heads, self.num_edge_attrs, num_layers = self.num_layers))
+        if num_edge_attrs == None:
+            self.syngnn = torch.jit.script(SynGNN(self.num_node_features,  self.num_att_heads, num_layers = self.num_layers))
+        else:
+            self.syngnn = torch.jit.script(SynGNN_EA(self.num_node_features,  self.num_att_heads, self.num_edge_attrs, num_layers = self.num_layers))
         self.highway =  torch.jit.script(HighwayFcNet(self.num_node_features))
         self.linear_classifier = tg_nn.Linear(self.num_node_features, self.num_labels)
         self.norm = tg_nn.LayerNorm(self.num_labels)
@@ -278,32 +385,45 @@ class SynBertForNer(nn.Module):
        
         pyg_data_batch = tg_data.Batch.from_data_list(graphs_with_embeddings)
         pyg_data_batch.to(torch.device('cpu'))
-        
+
         # Calculate syngnn output
-        syngnn_output, _ = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr)
+        if self.num_edge_attrs != None:
+            syngnn_output, _ = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index, pyg_data_batch.edge_attr)
+        else:
+            syngnn_output, _ = self.syngnn(torch.as_tensor(pyg_data_batch.x, dtype=torch.float), pyg_data_batch.edge_index)
+
         # Convert Syngnn output to sequence length*embedding_length to be compatible with Bert
-        # Numpy version
         syngnn_in_bert_format = np.zeros((batch_size,seq_len, feat_dim), dtype=np.float64)
         syngnn_output_np = syngnn_output.detach().numpy().copy()
         sentence_position = 0
         sentence_length_ctr = 0
-        for batch_idx in range(batch_size):
 
-            sentence_length = syntax_graphs[batch_idx].x.shape[0]-1
-            for token_idx in range(sentence_length):
-                syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output_np[sentence_position+token_idx,:]
-                sentence_length_ctr = sentence_length_ctr+1
-            sentence_position = sentence_position+sentence_length
+        # If dependency graph style
+        if pyg_data_batch.edge_attr != None:
+            for batch_idx in range(batch_size):
+                sentence_length = syntax_graphs[batch_idx].x.shape[0]-1
+                for token_idx in range(sentence_length):
+                    syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output_np[sentence_position+token_idx,:]
+                    sentence_length_ctr = sentence_length_ctr+1
+                sentence_position = sentence_position+sentence_length
+        # If constituency graphs:
+        else:
+            for batch_idx in range(batch_size):
+                sentence_length = len(sentence_graph_idx_maps[batch_idx])
+                for token_idx in sentence_graph_idx_maps[batch_idx]:
+                    syngnn_in_bert_format[batch_idx,token_idx,:] = syngnn_output_np[sentence_position+token_idx,:]
+                    sentence_length_ctr = sentence_length_ctr+1
+                sentence_position = sentence_position+sentence_length
 
-        #print(syngnn_in_bert_format[2][0])
-        #print(syngnn_in_bert_format[2][70])
+
+        #print(syngnn_in_bert_format.shape)
+        #print(syngnn_in_bert_format[1][0])
+        #print(syngnn_in_bert_format[1][70])
         syngnn_in_bert_format = torch.tensor(syngnn_in_bert_format, dtype=torch.float)
         syngnn_in_bert_format.to(torch.device('cpu'))
 
         # Process through highway gate
         highway_output = self.highway(sequence_output, syngnn_in_bert_format)
-        # 
-
 
         # Calculate final sequence output: ignore non-valid tokens, e.g. subtokens of words
         valid_output = torch.zeros(batch_size,seq_len,feat_dim,dtype=torch.float32)

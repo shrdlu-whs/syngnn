@@ -10,6 +10,7 @@ from networkx.drawing.nx_agraph import graphviz_layout
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pickle
 
 # Replace tokens in sentence
 def join_consecutive_tokens(token_array, idx_list):
@@ -132,3 +133,18 @@ def compare_sentence_to_graph(words_sentence_temp, words_graph_temp):
         remaining_tokens_sentence_idx = np.where(words_sentence_temp_np!="word processed")[0]
 
         return words_sentence_temp, words_graph_temp, remaining_tokens_sentence_idx, remaining_tokens_graph_idx
+
+#%%
+def save_sentences(sentences, filename):
+    dirname = os.path.dirname(filename)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    with open(filename, 'w') as output:
+        output.write("\n".join(sentences))
+#%%
+def save_syntrees(syntax_graphs, filename):
+        dirname = os.path.dirname(filename)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        with open(filename, 'wb') as handle:
+            pickle.dump(syntax_graphs, handle)
