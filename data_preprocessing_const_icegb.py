@@ -168,6 +168,9 @@ def analyse_line(line):
         # Get constituency attributes
         if result.group(4) != None:
             constituency_attributes = result.group(4).split(",")
+            # Item marked as ignore: discard line
+            if "ignore" in constituency_attributes:
+                return None, None, None
             constituency_attributes_set.extend(constituency_attributes)
         if result.group(6) != None:
             words = result.group(6)
@@ -274,7 +277,7 @@ class Node:
         else:
             return key
 
-for filename in glob.iglob(data_path + '**/written_*.tre', recursive=True):
+for filename in glob.iglob(data_path + '**/written_stud*.tre', recursive=True):
   with open(filename, encoding='cp1252') as ice_file:
     syntax_graphs = []
     raw_sentences = []
