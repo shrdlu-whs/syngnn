@@ -397,5 +397,13 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
-# Original data folder
-data/original
+# Data folder
+data/
+# Temp files folder
+temp/
+runs/
+trained_models/
+config/
+images/
+profiler/
+
