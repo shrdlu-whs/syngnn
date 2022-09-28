@@ -4,12 +4,13 @@ import os
 # %%
 # Available Bert configurations
 saved_models = [
-    "bert-base-cased",
-    "bert-base-uncased",
-    "./trained_models/ner/bert/ner_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0",
-    "./trained_models/ner/bert/ner_bert-base-cased_E0_batches2_LR2e-05_SL96_GN0-0_0",
-    "./trained_models/ner/bert/09_21_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0_0",
-    "./trained_models/mlm/bert/09_22_bert-base-cased_E5_batches32_LR2e-05_SL96_GN0-0_1"
+    "bert-base-cased", #0
+    "bert-base-uncased", #1
+    "./trained_models/ner/bert/ner_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0", #2
+    "./trained_models/ner/bert/ner_bert-base-cased_E0_batches2_LR2e-05_SL96_GN0-0_0", #3
+    "./trained_models/ner/bert/09_21_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0_0", #4
+    "./trained_models/mlm/bert/09_22_bert-base-cased_E5_batches32_LR2e-05_SL96_GN0-0_1", #5
+    "~/cdaniel/syntrans/trained_models/ner/bert/09_27_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0" #6 Bert trained with const tree data
 ]
 # %%
 label_weights_ud = []
@@ -141,6 +142,9 @@ def createNumberedDir(dirname):
     If folder exists and is not empry: create folder with running idx attached
     returns: created folder name
     """
+    # Remove ending slash from dir if given
+    if dirname[-1] == "/":
+        dirname = dirname[:-1]
     log_idx = 0
     while(os.path.exists(dirname+f"_{log_idx}")):
         # Check is dir is not empty
