@@ -10,7 +10,7 @@ saved_models = [
     "./trained_models/ner/bert/ner_bert-base-cased_E0_batches2_LR2e-05_SL96_GN0-0_0", #3
     "./trained_models/ner/bert/09_21_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0_0", #4
     "./trained_models/mlm/bert/09_22_bert-base-cased_E5_batches32_LR2e-05_SL96_GN0-0_1", #5
-    "~/cdaniel/syntrans/trained_models/ner/bert/09_27_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0" #6 Bert trained with const tree data
+    "./trained_models/ner/bert/09_27_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0" #6 Bert trained with const tree data
 ]
 # %%
 label_weights_ud = []

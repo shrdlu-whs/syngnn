@@ -29,7 +29,16 @@ class BertForNer(BertForTokenClassification):
     """
     Adapted from Huggingface BertForTokenClassification
     """
+    def __init__(self, config, label_weights):
+        super().__init__(config)
+        self.num_labels = config.num_labels
 
+        self.bert = BertModel(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+        self.label_weights = label_weights
+        print(label_weights)
+        self.init_weights()
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, label_ids=None,valid_ids=None,attention_mask_label=None):
 
         # Calculate new embeddings
@@ -49,7 +58,7 @@ class BertForNer(BertForTokenClassification):
         logits = self.classifier(sequence_output)
 
         if label_ids is not None:
-            loss_fct = nn.CrossEntropyLoss(ignore_index=0)
+            loss_fct = nn.CrossEntropyLoss(ignore_index=0, weight=self.label_weights)
             # Only keep active parts of the loss
             # Ignore padding tokens in loss calculation
             if attention_mask_label is not None:

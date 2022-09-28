@@ -31,8 +31,6 @@ print(f"PID: {PID}, PGID: {PGID}")
 # Only use CPU, hide GPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-tokenizer = "bert-base-uncased"
-
 def ConvertManuallyCorrectedNERFile(manual_ner_file):
 
     manual_ner_file = os.path.abspath(manual_ner_file)
@@ -118,7 +116,7 @@ def CreateNERLabelsFromDataset(file, tagger):
 data_path = "./data/ice-gb/"
 # Files in data folder to ignore
 skip_files = []
-files = glob.iglob(data_path + '**/written_*.txt', recursive=True)
+files = glob.iglob(data_path + '**/*.txt', recursive=True)
 files = [f for f in files if all(sf not in f for sf in skip_files)]
 
 mode = "CREATE"

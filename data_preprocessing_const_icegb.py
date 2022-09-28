@@ -277,7 +277,7 @@ class Node:
         else:
             return key
 
-for filename in glob.iglob(data_path + '**/written_stud*.tre', recursive=True):
+for filename in glob.iglob(data_path + '**/*.tre', recursive=True):
   with open(filename, encoding='cp1252') as ice_file:
     syntax_graphs = []
     raw_sentences = []
@@ -349,9 +349,13 @@ for filename in glob.iglob(data_path + '**/written_stud*.tre', recursive=True):
         x = torch.tensor(np.array(node_index), dtype=torch.long)
         data = Data(x=x,edge_index=edge_index)
         #print(data)
+        if len(sentence_graph_idx_map) == 0:
+            print(data)
+            #print(words_sentence)
+        else:
 
-        syntax_graphs.append([data, sentence_graph_idx_map])
-        raw_sentences.append(" ".join(words_sentence))
+            syntax_graphs.append([data, sentence_graph_idx_map])
+            raw_sentences.append(" ".join(words_sentence))
         #print(words_sentence)
         #print(tokens_graph)
     #print(ice_filepath)
