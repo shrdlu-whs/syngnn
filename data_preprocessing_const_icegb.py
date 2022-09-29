@@ -13,6 +13,8 @@ from transformers import BertTokenizer
 import torch
 from torch_geometric.data import Data
 import torch_geometric.utils as tg_utils
+import spacy
+from spacy import displacy
 import utilities_data_preprocessing as utils
 import importlib
 # Reload utils library if changed
@@ -31,9 +33,30 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
+# build the Pytorch geometric graphs from gold standard hand-annotated syntax trees
+#mode = "GOLD"
+# Generate syntax trees for text files automatically with Spacy and Berkeley Nueral Parser
+mode = "GEN"
+
 data_path = "./data/original/ice-gb/"
+
+if mode == "GOLD":
+    data_path = data_path + '**/*.tre'
+elif mode == "GEN":
+    data_path = data_path + '**/*.txt'
+    # Load the language model
+    nlp = spacy.load("en_core_web_lg")
+    import benepar
+    benepar.download('benepar_en3')
+    if spacy.__version__.startswith('2'):
+        nlp.add_pipe(benepar.BeneparComponent("benepar_en3"))
+    else:
+        nlp.add_pipe("benepar", config={"model": "benepar_en3"})
+
+print(f"Mode: {mode}")
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-uncased'
+print(f"Tokenizer: {tokenizer_name}")
 tokenizer = BertTokenizer.from_pretrained(tokenizer_name)
 
 entities = {
@@ -106,8 +129,8 @@ edges_end_const_token = []
 edges_start_token_token = []
 edges_end_token_token = []
 
-
-def const_tree_to_pytorch_geom(node, node_parent_id):
+# %%
+def const_tree_gold_to_pytorch_geom(node, node_parent_id):
     global node_id
     # Get words
     words = node.words
@@ -126,27 +149,54 @@ def const_tree_to_pytorch_geom(node, node_parent_id):
             tokens = tokenizer.tokenize(word)
             for token_idx, token in enumerate(tokens):
                 tokens_graph[node_id].append(tokenizer.convert_tokens_to_ids(token))
-                # Add edge to token
-                #edges_start.append(new_node_idx-1)
-                #edges_end.append(new_node_idx)
-        
-    #conll_pytorch_idx_map.append(int(token.id))
-
-    # Add edges from parent to current node
-    #if node_id != 0:
-    #    edges_start.append(node_parent_id)
-    #    edges_end.append(node_id)
 
     node_parent_id = node_id
     for child_node in node.children:
         
         node_id = node_id+1
         # Add edges from parent to current node
-        #if node_id != 0:
         edges_start.append(node_parent_id)
         edges_end.append(node_id)
-        const_tree_to_pytorch_geom(child_node, node_parent_id)
+        const_tree_gold_to_pytorch_geom(child_node, node_parent_id)
 
+# %%
+def const_tree_gen_to_pytorch_geom(node, node_parent_id):
+    global node_id
+    children_gen, children_gen_test = itertools.tee(node._.children,2)
+    # Node is leaf node
+    try:
+      next(children_gen_test)
+      # Add constituency tag
+      constituency_tags_sentence.append(node._.labels[0])
+      words = []
+    except:
+      # Get words
+      words = [node.text]
+      # Get POs tag of word
+      constituency_tags_sentence.append(node[0].tag_)
+    if hasattr(node, 'constituency_tag'):
+      # Add node constituency relation to list  
+      constituency_tags_sentence.append(node.constituency_tag)
+    #if hasattr(node, 'labels'):
+    
+    if words != None:
+        tokens_graph[node_id] = []
+        words_sentence.extend(words)
+        # Tokenize words and add tokens to dict
+        for word_idx, word in enumerate(words):
+            tokens = tokenizer.tokenize(word)
+            for token_idx, token in enumerate(tokens):
+                tokens_graph[node_id].append(tokenizer.convert_tokens_to_ids(token))
+
+    node_parent_id = node_id
+    for child_node in children_gen:
+        
+        node_id = node_id+1
+        # Add edges from parent to current node
+        edges_start.append(node_parent_id)
+        edges_end.append(node_id)
+        const_tree_gen_to_pytorch_geom(child_node, node_parent_id)
+# %%
 entity_set = []
 constituency_tags_set = []
 constituency_attributes_set = []
@@ -211,37 +261,36 @@ def add_tokens_to_graph(constituency_tags, tokens_graph, edges_start, edges_end)
 # Create Pytorch geometric node features of size num_nodes*embedding_size
 # For Bert tokens: placeholder of zeroes for real Bert embeddings added by SynGNN
 # For constituency tree nodes: concatenated one-hot encodings of constituency tag and constituency attributes of the node with padding zeroes to fill 768
-def create_pg_node_features(node_list, constituency_attributes_sentence, oh_encoder_constituency_tags, oh_encoder_constituency_attributes, embedding_size=768, num_const_attributes=113):
+def create_pg_node_features(node_list, num_const_graph_nodes, oh_encoder_constituency_tags, constituency_attributes_sentence=None, oh_encoder_constituency_attributes=None, embedding_size=768, num_const_attributes=113):
     node_index = []
-    len_constituency_attributes_sentence = len(constituency_attributes_sentence)
+    num_const_graph_nodes = len(constituency_attributes_sentence)
     for node_idx, node in enumerate(node_list):
         # Node is constituency tag node
-        if node_idx < len_constituency_attributes_sentence:
-            oh_const_tag = oh_encoder_constituency_tags.transform(np.array(node).reshape(-1, 1)).toarray()
-            oh_const_attributes = np.zeros(num_const_attributes,dtype=int)
-            for const_attr in constituency_attributes_sentence[node_idx]:
-                #print(const_attr)
-                oh_const_attr = oh_encoder_constituency_attributes.transform(np.array(const_attr).reshape(-1, 1)).toarray()
-                #print(oh_const_attr)
-                oh_index = np.where(oh_const_attr[0] == 1)
-                oh_const_attributes[oh_index] = 1
-
+        if node_idx < num_const_graph_nodes:
             # Append one hot encoded const tag and attributes
             node_embedding = []
-            #print(oh_const_tag)
-            #print(oh_const_attributes)
+            oh_const_tag = oh_encoder_constituency_tags.transform(np.array(node).reshape(-1, 1)).toarray()
             node_embedding.extend(oh_const_tag[0])
-            node_embedding.extend(oh_const_attributes)
+            if constituency_attributes_sentence != None:
+                oh_const_attributes = np.zeros(num_const_attributes,dtype=int)
+                for const_attr in constituency_attributes_sentence[node_idx]:
+                    #print(const_attr)
+                    oh_const_attr = oh_encoder_constituency_attributes.transform(np.array(const_attr).reshape(-1, 1)).toarray()
+                    #print(oh_const_attr)
+                    oh_index = np.where(oh_const_attr[0] == 1)
+                    oh_const_attributes[oh_index] = 1
+                node_embedding.extend(oh_const_attributes)
+
             padding_length = embedding_size-len(node_embedding)
             for i in range(padding_length):
                 node_embedding.append(0)
             node_index.append(node_embedding)
 
-
         # Node is token node
         else:
             node_index.append(np.zeros(embedding_size,dtype=int))
     return node_index
+
 class Node:
     def __init__(self, indented_line):
         self.children = []
@@ -285,28 +334,24 @@ for filename in glob.iglob(data_path + '**/*.tre', recursive=True):
     ice_filename = os.path.basename(ice_filepath)
     print(ice_filename)
     text = ice_file.read()
-    root = Node('root')
-    root.add_children([Node(line) for line in text.splitlines() if line.strip()])
-    #graphs = root.as_dict()
-    #print(graphs)
-    entity_set = list(set(entity_set))
-    #print(len(entity_set))
-    print(entity_set)
-    constituency_tags_set = list(set(constituency_tags_set))
-    #print(constituency_tags_set)
-    print("Constituency tags:")
-    print(len(constituency_tags_set))
-    constituency_attributes_set = list(set(constituency_attributes_set))
-    num_const_attributes = len(constituency_attributes_set)
-    print("Constituency attributes:")
-    print(num_const_attributes)
-    #print(constituency_attributes_set)
+
+    if mode == "GOLD":
+        root = Node('root')
+        root.add_children([Node(line) for line in text.splitlines() if line.strip()])
+
+        entity_set = list(set(entity_set))
+        constituency_tags_set = list(set(constituency_tags_set))
+
+        constituency_attributes_set = list(set(constituency_attributes_set))
+        num_const_attributes = len(constituency_attributes_set)
+        oh_encoder_constituency_attributes = preprocessing.OneHotEncoder(dtype=int)
+        oh_encoder_constituency_attributes.fit(np.array(constituency_attributes_set).reshape(-1, 1))
+
     
     # Create one-hot encoder for constituency tags and attributes
     oh_encoder_constituency_tags = preprocessing.OneHotEncoder(dtype=int)
     oh_encoder_constituency_tags.fit(np.array(constituency_tags_set).reshape(-1, 1))
-    oh_encoder_constituency_attributes = preprocessing.OneHotEncoder(dtype=int)
-    oh_encoder_constituency_attributes.fit(np.array(constituency_attributes_set).reshape(-1, 1))
+    
     
     sentences = root.children
 
@@ -325,7 +370,11 @@ for filename in glob.iglob(data_path + '**/*.tre', recursive=True):
         # Graph edges
         edges_start = []
         edges_end = []
-        const_tree_to_pytorch_geom(sentence, node_parent_id)
+        if mode == "GOLD":
+            const_tree_gold_to_pytorch_geom(sentence, node_parent_id)
+        else:
+            # Generate syntax trees from text files
+            const_tree_gen_to_pytorch_geom(sentence, node_parent_id)
         '''print("Extracted graph")
         print(words_sentence)
         print(constituency_tags_sentence)
@@ -333,7 +382,7 @@ for filename in glob.iglob(data_path + '**/*.tre', recursive=True):
         print(edges_start)
         print(edges_end)
         print(tokens_graph)'''
-
+        num_const_graph_nodes = len(constituency_tags_sentence)
         node_list, sentence_graph_idx_map, edges_start, edges_end = add_tokens_to_graph(constituency_tags_sentence, tokens_graph, edges_start, edges_end)
         '''print("--------------")
         print(node_list)
@@ -341,7 +390,10 @@ for filename in glob.iglob(data_path + '**/*.tre', recursive=True):
         print(edges_start)
         print(edges_end)'''
         #print(sentence_graph_idx_map)
-        node_index = create_pg_node_features(node_list, constituency_attributes_sentence, oh_encoder_constituency_tags, oh_encoder_constituency_attributes, num_const_attributes=num_const_attributes)
+        if mode == "GOLD":
+            node_index = create_pg_node_features(node_list, num_const_graph_nodes,  oh_encoder_constituency_tags, constituency_attributes_sentence, oh_encoder_constituency_attributes, num_const_attributes=num_const_attributes)
+        else:
+            node_index = create_pg_node_features(node_list, num_const_graph_nodes,  oh_encoder_constituency_tags)
         #print(node_index[-1])
 
         # Create Pytorch data object
@@ -375,10 +427,14 @@ for filename in glob.iglob(data_path + '**/*.tre', recursive=True):
     utils.save_sentences(sentences_test, filename_text_test)
 
     # Save list of Pytorch geometric data objects
-    #filename_syntree = filename_text.split(".")[0] + f".syntree"
-    filename_syntree_train = filename_text + f"-train-{tokenizer_name}.syntree"
-    filename_syntree_dev = filename_text + f"-dev-{tokenizer_name}.syntree"
-    filename_syntree_test = filename_text + f"-test-{tokenizer_name}.syntree"
+    if mode == "GOLD":
+        filename_syntree_train = filename_text + f"gold--train-{tokenizer_name}.syntree"
+        filename_syntree_dev = filename_text + f"gold--dev-{tokenizer_name}.syntree"
+        filename_syntree_test = filename_text + f"gold-test-{tokenizer_name}.syntree"
+    else:
+        filename_syntree_train = filename_text + f"gen-train-{tokenizer_name}.syntree"
+        filename_syntree_dev = filename_text + f"gen-dev-{tokenizer_name}.syntree"
+        filename_syntree_test = filename_text + f"gen-test-{tokenizer_name}.syntree"
     
     print(filename_syntree_train)
     # Split syntax graphs in train, dev, test

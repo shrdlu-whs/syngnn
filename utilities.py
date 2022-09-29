@@ -7,7 +7,7 @@ saved_models = [
     "bert-base-cased", #0
     "bert-base-uncased", #1
     "./trained_models/ner/bert/ner_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0", #2
-    "./trained_models/ner/bert/ner_bert-base-cased_E0_batches2_LR2e-05_SL96_GN0-0_0", #3
+    "./trained_models/ner/bert/ner_bert-base-cased_E2_batches2_LR2e-05_SL96_GN0-0_0", #3
     "./trained_models/ner/bert/09_21_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0_0", #4
     "./trained_models/mlm/bert/09_22_bert-base-cased_E5_batches32_LR2e-05_SL96_GN0-0_1", #5
     "./trained_models/ner/bert/09_27_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0" #6 Bert trained with const tree data
@@ -16,7 +16,7 @@ saved_models = [
 label_weights_ud = []
 # %%
 class Params:
-    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar):
+    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar, trained_epochs):
         self.use_gnn = use_gnn
         self.saved_model_path = saved_model_path
         self.train_model = train_model
@@ -37,6 +37,7 @@ class Params:
         self.label_weights_clip = 50
         self.lr_decay = 0.3
         self.lr_decay_end = 5
+        self.trained_epochs = trained_epochs
 
     # %%
 
@@ -59,7 +60,7 @@ def configureParameters(parameters):
             tokenizer = [item for item in model_config if item.startswith('bert')][0]
             #tokenizer = transformer_name.split("_")[1]
             sequence_length = [int(item.replace("SL", "")) for item in model_config if item.startswith('SL')][0]
-            #sequence_length = int(transformer_name.split("_")[5].replace("SL",""))
+            trained_epochs = [int(item.replace("E", "")) for item in model_config if item.startswith('E')][0]
         else:
             tokenizer = saved_model_path
             # sequence length norm parameter
@@ -67,6 +68,7 @@ def configureParameters(parameters):
                 sequence_length = int(parameters["seq_len"])
             else:
                 sequence_length = 96
+            trained_epochs = 0
         
         # Data path
         data_path = parameters["data_path"][0]
@@ -132,7 +134,7 @@ def configureParameters(parameters):
 
 
 
-        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar)
+        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar, trained_epochs)
 
 
 # %%
