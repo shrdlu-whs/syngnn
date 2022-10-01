@@ -43,13 +43,17 @@ mode = "GOLD"
 
 
 if mode == "GOLD":
-    data_path = "./data/original/ice-gb/"
+    data_path = "./data/original/ice-gb"
     data_path = data_path + '**/*.tre'
     encoding = 'cp1252'
+    # Number of lines or -1 for all lines
+    num_lines = -1
 elif mode == "GEN":
     data_path = "./data/ice-gb/"
-    data_path = data_path + '**/*.txt'
+    data_path = data_path + '**/*-gold-*.txt'
     encoding = 'utf-8'
+    # Number of lines or -1 for all lines
+    num_lines = -1
     # Load the language model
     nlp = spacy.load("en_core_web_lg")
     import benepar
@@ -385,11 +389,14 @@ for filename in glob.iglob(data_path, recursive=True):
   with open(filename, encoding=encoding) as ice_file:
     ice_filepath = os.path.abspath(filename)
     ice_filename = os.path.basename(ice_filepath)
-    print(ice_filename)
+    #print(ice_filename)
     text = ice_file.read()
     
+    #print(text[-100:-1])
+    #text = text +"\n"
+    
     if mode == "GOLD":
-        text = text.splitlines()
+        text = text.splitlines()[0:num_lines]
         root = Node('root')
         root.add_children([Node(line) for line in text if line.strip()])
         sentences = root.children
@@ -400,8 +407,9 @@ for filename in glob.iglob(data_path, recursive=True):
         del(text)
     elif mode == "GEN":
         sentences = text.splitlines()
+
         del(text)
-        for sentence in sentences:
+        for sent_idx, sentence in enumerate(sentences):
             node_id = 0
             node_parent_id = 0
             constituency_tags_sentence = []
@@ -417,16 +425,17 @@ for filename in glob.iglob(data_path, recursive=True):
 
             doc = nlp(sentence)
             sentence = list(doc.sents)[0]
-            #print(sentence._.parse_string)
+
             const_tree_gen_to_pytorch_geom(sentence, node_parent_id)
             for const_tag in constituency_tags_sentence:
                 if const_tag not in constituency_tags_set:
                     constituency_tags_set.append(const_tag)
 if mode == "GOLD":
+    print(constituency_attributes_set)
     num_const_attributes = len(constituency_attributes_set)
     oh_encoder_constituency_attributes = preprocessing.OneHotEncoder(dtype=int)
     oh_encoder_constituency_attributes.fit(np.array(constituency_attributes_set).reshape(-1, 1))
-    print(constituency_attributes_set)
+    
 oh_encoder_constituency_tags = preprocessing.OneHotEncoder(dtype=int)
 oh_encoder_constituency_tags.fit(np.array(constituency_tags_set).reshape(-1, 1))
 print(constituency_tags_set)
@@ -445,7 +454,7 @@ for filename in glob.iglob(data_path, recursive=True):
     text = ice_file.read()
     
     if mode == "GOLD":
-        text = text.splitlines()
+        text = text.splitlines()[0:num_lines]
         root = Node('root')
         root.add_children([Node(line) for line in text if line.strip()])
         sentences = root.children
@@ -455,7 +464,7 @@ for filename in glob.iglob(data_path, recursive=True):
 
     del(text)
     
-    for sentence in sentences:
+    for sent_idx, sentence in enumerate(sentences):
         #for child in sentence.children:
         #    print(child.constituency_tag)
         node_id = 0
@@ -477,7 +486,9 @@ for filename in glob.iglob(data_path, recursive=True):
             # Generate syntax trees from raw sentence4
             doc = nlp(sentence)
             sentence = list(doc.sents)[0]
-            
+            if sent_idx == len(sentences)-1:
+                print("Parse string")
+                print(sentence._.parse_string)
             
             const_tree_gen_to_pytorch_geom(sentence, node_parent_id)
         
@@ -510,24 +521,29 @@ for filename in glob.iglob(data_path, recursive=True):
         data = Data(x=x,edge_index=edge_index)
         
         if len(sentence_graph_idx_map) == 0:
+            print("No tokens found")
             print(data)
-            #print(words_sentence)
+            print(words_sentence)
         else:
 
             syntax_graphs.append([data, sentence_graph_idx_map])
             raw_sentences.append(" ".join(words_sentence))
+
         
         #print(tokens_graph)
     #print(ice_filepath)
-    if mode == "GOLD":
-        # Create text files with sentences
-        filename_text = ice_filepath.split(".")[0]
-        filename_text = filename_text.replace("original/","")
-        filename_text_train = filename_text + f"-train-{tokenizer_name}.txt"
-        filename_text_dev = filename_text + f"-dev-{tokenizer_name}.txt"
-        filename_text_test = filename_text + f"-test-{tokenizer_name}.txt"
-        print(filename_text_train)
 
+    # Save list of Pytorch geometric data objects
+    filename = ice_filepath.split(".")[0]
+    filename = filename.replace("original/","")
+    mode_name = mode.lower()
+
+    if mode == "GOLD":
+        filename_text_train = filename + f"-{mode_name}-train-{tokenizer_name}.txt"
+        filename_text_dev = filename + f"-{mode_name}-dev-{tokenizer_name}.txt"
+        filename_text_test = filename + f"-{mode_name}-test-{tokenizer_name}.txt"
+
+        
         # Split sentences in train, dev, test
         sentences_train, sentences_test = train_test_split(raw_sentences, test_size=0.25, shuffle=True, random_state=42)
         sentences_dev, sentences_test = train_test_split(sentences_test,test_size=0.5, shuffle=True, random_state=42)
@@ -536,28 +552,29 @@ for filename in glob.iglob(data_path, recursive=True):
         utils.save_sentences(sentences_dev, filename_text_dev)
         utils.save_sentences(sentences_test, filename_text_test)
 
-    # Save list of Pytorch geometric data objects
-    filename = ice_filepath.split(".")[0]
-    filename = filename.replace("original/","")
-    if mode == "GOLD":
-        
-        filename_syntree_train = filename + f"-gold-train-{tokenizer_name}.syntree"
-        filename_syntree_dev = filename + f"-gold-dev-{tokenizer_name}.syntree"
-        filename_syntree_test = filename + f"-gold-test-{tokenizer_name}.syntree"
+        print(filename_text_train)
+        filename_syntree_train = filename + f"-{mode_name}-train-{tokenizer_name}.syntree"
+        filename_syntree_dev = filename + f"-{mode_name}-dev-{tokenizer_name}.syntree"
+        filename_syntree_test = filename + f"-{mode_name}-test-{tokenizer_name}.syntree"
+
+        # Split syntax graphs in train, dev, test
+        syntax_graphs_train, syntax_graphs_test = train_test_split(syntax_graphs, test_size=0.25, shuffle=True, random_state=42)
+        syntax_graphs_dev, syntax_graphs_test = train_test_split(syntax_graphs_test,test_size=0.5, shuffle=True, random_state=42)
+        # Save train, dev, test syntrees
+        utils.save_syntrees(syntax_graphs_train, filename_syntree_train)
+        utils.save_syntrees(syntax_graphs_dev, filename_syntree_dev)
+        utils.save_syntrees(syntax_graphs_test, filename_syntree_test)
+
+        print(filename_syntree_train)
     else:
-        filename_text = ice_filepath.split(".")[0]
-        filename_syntree_train = filename + f"-gen-train-{tokenizer_name}.syntree"
-        filename_syntree_dev = filename + f"-gen-dev-{tokenizer_name}.syntree"
-        filename_syntree_test = filename + f"-gen-test-{tokenizer_name}.syntree"
-    
-    print(filename_syntree_train)
-    # Split syntax graphs in train, dev, test
-    syntax_graphs_train, syntax_graphs_test = train_test_split(syntax_graphs, test_size=0.25, shuffle=True, random_state=42)
-    syntax_graphs_dev, syntax_graphs_test = train_test_split(syntax_graphs_test,test_size=0.5, shuffle=True, random_state=42)
-    # Save train, dev, test syntrees
-    utils.save_syntrees(syntax_graphs_train, filename_syntree_train)
-    utils.save_syntrees(syntax_graphs_dev, filename_syntree_dev)
-    utils.save_syntrees(syntax_graphs_test, filename_syntree_test)
+        filename = filename.replace("gold",mode_name)
+        filename_text = filename + ".txt"
+        filename_syntree = filename + ".syntree"
+        utils.save_sentences(raw_sentences, filename_text)
+        utils.save_syntrees(syntax_graphs, filename_syntree)
+        print(filename)
+
+
 
     print(f"Saved {len(raw_sentences)} sentences and {len(syntax_graphs)} graphs")
 

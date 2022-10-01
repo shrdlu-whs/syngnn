@@ -141,6 +141,8 @@ def save_sentences(sentences, filename):
         os.makedirs(dirname)
     with open(filename, 'w') as output:
         output.write("\n".join(sentences))
+        #output.write("\n")
+        output.close
 #%%
 def save_syntrees(syntax_graphs, filename):
         dirname = os.path.dirname(filename)
@@ -148,3 +150,4 @@ def save_syntrees(syntax_graphs, filename):
             os.makedirs(dirname)
         with open(filename, 'wb') as handle:
             pickle.dump(syntax_graphs, handle)
+            handle.close
