@@ -538,7 +538,7 @@ for filename in glob.iglob(data_path, recursive=True):
 
     # Save list of Pytorch geometric data objects
     filename = ice_filepath.split(".")[0]
-    filename = filename_text.replace("original/","")
+    filename = filename.replace("original/","")
     if mode == "GOLD":
         
         filename_syntree_train = filename + f"-gold-train-{tokenizer_name}.syntree"

@@ -1,2 +1,2 @@
-train_model;epochs;batch_size;num_threads;learning_rate;saved_model_path;data_path;task;num_sentences;use_gnn;max_grad_norm;num_layers;num_att_heads;seq_len;use_weights;use_grammar
-True;4;2;4;2e-4;3;./data/ud/UD_English-GUM/;ner;50;False;0.0;4;2;96;False;dep
+train_model;epochs;batch_size;num_threads;learning_rate;saved_model_path;data_path;task;num_sentences;use_gnn;max_grad_norm;num_layers;num_att_heads;seq_len;use_weights;use_grammar;syntree_type
+True;4;2;4;2e-4;3;./data/ice-gb/;ner;50;True;0.0;4;2;96;True;const;gold

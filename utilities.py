@@ -16,7 +16,7 @@ saved_models = [
 label_weights_ud = []
 # %%
 class Params:
-    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar, trained_epochs):
+    def __init__(self, use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar, trained_epochs, syntree_type):
         self.use_gnn = use_gnn
         self.saved_model_path = saved_model_path
         self.train_model = train_model
@@ -34,6 +34,7 @@ class Params:
         self.num_layers = num_layers
         self.use_label_weights = use_label_weights
         self.use_grammar = use_grammar
+        self.syntree_type = syntree_type
         self.label_weights_clip = 50
         self.lr_decay = 0.3
         self.lr_decay_end = 5
@@ -130,11 +131,14 @@ def configureParameters(parameters):
         else:
             print("Select one of 'dep' for dependency style syntax trees or 'const' for constituency style syntax trees")
             exit()
+        
+        # Selected syntree type: 'gold-standard hand annotated' (gold) or automatically generated  (gen)
+        syntree_type = parameters["syntree_type"][0]
 
 
 
 
-        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar, trained_epochs)
+        return Params(use_gnn, saved_model_path, tokenizer, data_path, train_model, epochs, learning_rate, batch_size, sequence_length, task, num_threads, num_sentences, max_grad_norm, num_att_heads, num_layers, use_label_weights, use_grammar, trained_epochs, syntree_type)
 
 
 # %%
