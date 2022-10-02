@@ -102,7 +102,7 @@ def get_activation_fn(activation):
 # SynGNN Layer with edge attributes
 class SynGNNLayer_EA(torch.nn.Module):
     def __init__(self, dim_in, num_att_heads, dim_edge_attrs=None, dropout=0.1, activation="gelu", dim_feedforward=2048):
-        super(SynGNNLayer, self).__init__()
+        super(SynGNNLayer_EA, self).__init__()
         # Graph attention sublayer
         self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_in, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=False).jittable()
         #self.graph_attn = graph_attn.jittable('(Tuple[int,int], Tuple[int,int], int,int) -> Tensor')
@@ -125,7 +125,7 @@ class SynGNNLayer_EA(torch.nn.Module):
     def __setstate__(self, state):
         if 'activation' not in state:
             state['activation'] = torch.nn.GELU()
-        super(SynGNNLayer, self).__setstate__(state)
+        super(SynGNNLayer_EA, self).__setstate__(state)
 
 
 

@@ -49,14 +49,16 @@ data_path_dev = "./data/original/ud/UD_English-GUM/"
 data_path = "./data/original/ud/UD_English-GUM"
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-uncased'
-# Set of syntactic dependency tags
+# Set of syntactic universal dependency tags
 dependency_tags = ["-","sub","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","obj","iobj","csubj","csubj:pass","csubj:outer","ccomp","xcomp","nummod","appos","nmod","nmod:npmod","nmod:tmod","nmod:poss","acl","acl:relcl","amod","det","det:predet","case","obl","obl:npmod","obl:tmod","advcl","advmod","compound","compound:prt","fixed","flat","flat:foreign","goeswith","vocative","discourse","expl","aux","aux:pass","cop","mark","conj","cc","cc:preconj","parataxis","list","dislocated","orphan","reparandum", "obl:agent"]
-
+# Universal dependencies Part of Speech tags
+upos_tags = ["ADJ","ADP","ADV","AUX","CCONJ","DET","INTJ","NOUN","NUM","PART","PRON","PROPN","PUNCT","SCONJ","SYM","VERB","X"]
 
 device =  torch.device('cpu')
 
 tokenizer = BertTokenizer.from_pretrained(tokenizer_name)
 print_graph = False
+syntree_mode = "gold"
 count_graph_sentence_discrepancy = 0
 
 def dep_tree_to_pytorch_geom(tree):
@@ -65,6 +67,7 @@ def dep_tree_to_pytorch_geom(tree):
     token = tree.data
     # Add node dependency relation to list     
     dependency_tags_sentence.append(token.deprel)
+    upos_tags_sentence.append(token.upos)
 
     words_graph.append(token.form)
     conll_pytorch_idx_map.append(int(token.id))
@@ -179,6 +182,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     edges_end = []
     # Dependency tags for a sentence (edge attribute). Add root node by default.
     dependency_tags_sentence = []
+    upos_tags_sentence = []
     #dependency_tags_sentence.append("-")
     # Tokens in a sentence (node attribute)
     words_graph = []
@@ -470,7 +474,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
   print(f"Num syntax graphs created: {len(syntax_graphs)}")
   print(f"Num processed sentences: {len(processed_sentences)}")
   # Save processed corpus text
-  filename_text = ud_file.split(".")[0] + f"-{tokenizer_name}.txt"
+  filename_text = ud_file.split(".")[0] + f"-{tokenizer_name}-{syntree_mode}.txt"
   filename_text = filename_text.replace("original/","")
 
   dirname = os.path.dirname(filename_text)

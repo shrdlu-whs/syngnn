@@ -3,7 +3,6 @@
 # Processes ICE-GB *.tre files
 ####
 
-from email.headerregistry import ContentDispositionHeader
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -35,12 +34,15 @@ PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
+# BERT tokenizer to use:
+tokenizer_name = 'bert-base-uncased'
+print(f"Tokenizer: {tokenizer_name}")
+tokenizer = BertTokenizer.from_pretrained(tokenizer_name)
+
 # build the Pytorch geometric graphs from gold standard hand-annotated syntax trees
-mode = "GOLD"
+#mode = "GOLD"
 # Generate syntax trees for text files automatically with Spacy and Berkeley Nueral Parser
-#mode = "GEN"
-
-
+mode = "GEN"
 
 if mode == "GOLD":
     data_path = "./data/original/ice-gb"
@@ -49,25 +51,22 @@ if mode == "GOLD":
     # Number of lines or -1 for all lines
     num_lines = -1
 elif mode == "GEN":
-    data_path = "./data/ice-gb/"
-    data_path = data_path + '**/*-gold-*.txt'
+    data_path = "./data/test_sample/ice-gb/"
+    data_path = data_path + f"**/*-gold-*-{tokenizer_name}.txt"
     encoding = 'utf-8'
     # Number of lines or -1 for all lines
     num_lines = -1
     # Load the language model
     nlp = spacy.load("en_core_web_lg")
     import benepar
-    benepar.download('benepar_en3_large')
+    benepar.download('benepar_en3')
     if spacy.__version__.startswith('2'):
-        nlp.add_pipe(benepar.BeneparComponent("benepar_en3_large"))
+        nlp.add_pipe(benepar.BeneparComponent("benepar_en3"))
     else:
-        nlp.add_pipe("benepar", config={"model": "benepar_en3_large"})
+        nlp.add_pipe("benepar", config={"model": "benepar_en3"})
 
 print(f"Mode: {mode}")
-# BERT tokenizer to use:
-tokenizer_name = 'bert-base-uncased'
-print(f"Tokenizer: {tokenizer_name}")
-tokenizer = BertTokenizer.from_pretrained(tokenizer_name)
+print(data_path)
 
 entities = {
     "&semi;":";",
@@ -195,35 +194,6 @@ def const_tree_gen_to_pytorch_geom(node, start_node_id):
             node_id = node_id+1
             edges_start.append(start_node_id)
             edges_end.append(node_id)
-
-        #print(node._.labels[0])
-
-
-    #children_gen, children_gen_test = itertools.tee(node._.children,2)
-    # Node is leaf node
-    
-    #try:
-    #  next(children_gen_test)
-      #print("Has children")
-      #print(node._.labels[0])
-      #print(node.text)
-      # Add constituency tag
-    #  constituency_tags_sentence.append(node._.labels[0])
-    #  words = []
-    #except:
-        #print("No children")
-
-    #    if len(node._.labels) == 0:
-            # Get words
-    #        words = [node.text]
-            # Get POs tag of word
-    #        constituency_tags_sentence.append(node[0].tag_)
-    #    else:
-    #        constituency_tags_sentence.append(node._.labels[0])
-    #        words = []
-        #print(node._.labels)
-        #print(words)
-        #print(node[0].tag_)
     
     if words != None:
         tokens_graph[node_id] = []
@@ -509,6 +479,7 @@ for filename in glob.iglob(data_path, recursive=True):
         print(edges_start)
         print(edges_end)
         print(sentence_graph_idx_map)'''
+        # For gold constituency tags: add constituency attributes to node features
         if mode == "GOLD":
             node_index = create_pg_node_features(node_list, num_const_graph_nodes,  oh_encoder_constituency_tags, constituency_attributes_sentence, oh_encoder_constituency_attributes, num_const_attributes=num_const_attributes)
         else:
@@ -539,9 +510,9 @@ for filename in glob.iglob(data_path, recursive=True):
     mode_name = mode.lower()
 
     if mode == "GOLD":
-        filename_text_train = filename + f"-{mode_name}-train-{tokenizer_name}.txt"
-        filename_text_dev = filename + f"-{mode_name}-dev-{tokenizer_name}.txt"
-        filename_text_test = filename + f"-{mode_name}-test-{tokenizer_name}.txt"
+        filename_text_train = filename + f"-train-{tokenizer_name}.txt"
+        filename_text_dev = filename + f"-dev-{tokenizer_name}.txt"
+        filename_text_test = filename + f"-test-{tokenizer_name}.txt"
 
         
         # Split sentences in train, dev, test
@@ -553,9 +524,9 @@ for filename in glob.iglob(data_path, recursive=True):
         utils.save_sentences(sentences_test, filename_text_test)
 
         print(filename_text_train)
-        filename_syntree_train = filename + f"-{mode_name}-train-{tokenizer_name}.syntree"
-        filename_syntree_dev = filename + f"-{mode_name}-dev-{tokenizer_name}.syntree"
-        filename_syntree_test = filename + f"-{mode_name}-test-{tokenizer_name}.syntree"
+        filename_syntree_train = filename + f"-train-{tokenizer_name}-{mode_name}.syntree"
+        filename_syntree_dev = filename + f"-dev-{tokenizer_name}-{mode_name}.syntree"
+        filename_syntree_test = filename + f"-test-{tokenizer_name}-{mode_name}.syntree"
 
         # Split syntax graphs in train, dev, test
         syntax_graphs_train, syntax_graphs_test = train_test_split(syntax_graphs, test_size=0.25, shuffle=True, random_state=42)
@@ -567,10 +538,7 @@ for filename in glob.iglob(data_path, recursive=True):
 
         print(filename_syntree_train)
     else:
-        filename = filename.replace("gold",mode_name)
-        filename_text = filename + ".txt"
-        filename_syntree = filename + ".syntree"
-        utils.save_sentences(raw_sentences, filename_text)
+        filename_syntree = filename + f"-{mode_name}.syntree"
         utils.save_syntrees(syntax_graphs, filename_syntree)
         print(filename)
 

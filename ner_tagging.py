@@ -113,10 +113,10 @@ def CreateNERLabelsFromDataset(file, tagger):
 
 
 # Load text files
-data_path = "./data/ice-gb/"
+data_path = "./data/test_sample/ice-gb/"
 # Files in data folder to ignore
 skip_files = []
-files = glob.iglob(data_path + '**/*.txt', recursive=True)
+files = glob.iglob(data_path + '**/*-gen-*.txt', recursive=True)
 files = [f for f in files if all(sf not in f for sf in skip_files)]
 
 mode = "CREATE"
