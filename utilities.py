@@ -36,8 +36,10 @@ class Params:
         self.use_grammar = use_grammar
         self.syntree_type = syntree_type
         self.label_weights_clip = 50
-        self.lr_decay = 0.3
-        self.lr_decay_end = 5
+        #self.lr_decay = 0.3 # Bert pretraining
+        #self.lr_decay_end = 5 # Bert pretraining
+        self.lr_decay = 0.2 # Bert pretraining
+        self.lr_decay_end = 8 # Bert pretraining
         self.trained_epochs = trained_epochs
 
     # %%
@@ -46,6 +48,7 @@ def configureParameters(parameters):
         # Saved model path
         parameters["saved_model_path"] = parameters["saved_model_path"].astype('string') 
         saved_model_path = parameters["saved_model_path"][0]
+        resume_train = parameters["resume_train"][0]
 
         # Check if saved model path is index to saved_models array
         try:
@@ -61,7 +64,10 @@ def configureParameters(parameters):
             tokenizer = [item for item in model_config if item.startswith('bert')][0]
             #tokenizer = transformer_name.split("_")[1]
             sequence_length = [int(item.replace("SL", "")) for item in model_config if item.startswith('SL')][0]
-            trained_epochs = [int(item.replace("E", "")) for item in model_config if item.startswith('E')][0]
+            if resume_train == "True:":
+                trained_epochs = [int(item.replace("E", "")) for item in model_config if item.startswith('E')][0]
+            else:
+                trained_epochs = 0
         else:
             tokenizer = saved_model_path
             # sequence length norm parameter
