@@ -6,11 +6,11 @@ import os
 saved_models = [
     "bert-base-cased", #0
     "bert-base-uncased", #1
-    "./trained_models/ner/bert/ner_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0", #2 Bert trained with dependency tree data
-    "./trained_models/ner/bert/ner_bert-base-cased_E2_batches2_LR2e-05_SL96_GN0-0_0", #3
-    "./trained_models/ner/bert/09_21_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0_0", #4 #2 Bert trained with dependency tree data
-    "./trained_models/mlm/bert/09_22_bert-base-cased_E5_batches32_LR2e-05_SL96_GN0-0_1", #5
-    "./trained_models/ner/bert/09_27_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_0" #6 Bert trained with const tree data
+    "./trained_models/ner/bert/dep/ner_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0", #2 Bert cased trained with dependency tree data
+    "./trained_models/ner/bert/dep/09_21_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0", #3 Bert uncased trained with dependency tree data
+    "./trained_models/ner/bert/const/09_27_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0", #4 Bert cased trained with const tree data
+    "./trained_models/ner/bert/const/09_28_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0" #5 Bert uncased trained with const tree data
+    "./trained_models/ner/bert/ner_bert-base-cased_E2_batches2_LR2e-05_SL96_GN0-0_0", #6 Sample config for testing
 ]
 # %%
 label_weights_ud = []

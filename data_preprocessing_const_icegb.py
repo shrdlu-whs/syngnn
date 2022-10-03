@@ -480,10 +480,11 @@ for filename in glob.iglob(data_path, recursive=True):
         print(edges_end)
         print(sentence_graph_idx_map)'''
         # For gold constituency tags: add constituency attributes to node features
-        if mode == "GOLD":
-            node_index = create_pg_node_features(node_list, num_const_graph_nodes,  oh_encoder_constituency_tags, constituency_attributes_sentence, oh_encoder_constituency_attributes, num_const_attributes=num_const_attributes)
-        else:
-            node_index = create_pg_node_features(node_list, num_const_graph_nodes,  oh_encoder_constituency_tags)
+        # Optional, standard gold constituency trees consist of const_labels only
+        #if mode == "GOLD":
+        #    node_index = create_pg_node_features(node_list, num_const_graph_nodes,  oh_encoder_constituency_tags, constituency_attributes_sentence, oh_encoder_constituency_attributes, num_const_attributes=num_const_attributes)
+        #else:
+        node_index = create_pg_node_features(node_list, num_const_graph_nodes,  oh_encoder_constituency_tags)
         #print(node_index[-1])
 
         # Create Pytorch data object
