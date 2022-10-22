@@ -10,6 +10,8 @@ import glob
 import re
 import torch
 import random
+import pickle
+import pandas as pd
 
 # Export env vars to limit number of threads to use
 num_threads = str(12)
@@ -32,7 +34,13 @@ print(f"PID: {PID}, PGID: {PGID}")
 # Only use CPU, hide GPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-def DiscardFromNERFile(ner_file, discard_sentences_ratio = 0.25, discard_ne_ratio = 0.45):
+def BalanceNERFile(ner_file, discard_sentences_ratio = 0.25, discard_ne_ratio = 0.45):
+
+    # Extract syntree filepaths
+    syntree_file_gold = ner_file.replace("ner/","").replace("-orig.ner","-gold.syntree")
+    syntree_file_gold_balanced = ner_file.replace("ner/","").replace("-orig.ner","-gold-balanced.syntree")
+    print(syntree_file_gold)
+    print(syntree_file_gold_balanced)
 
     # Save number of written senteces and NE tags
     written_sentences = 0
@@ -42,18 +50,21 @@ def DiscardFromNERFile(ner_file, discard_sentences_ratio = 0.25, discard_ne_rati
     filename = os.path.basename(ner_file)
     print(filename)
     ner_file_balanced = ner_file.replace("orig", "orig-balanced")
+    print(ner_file_balanced)
     with open(ner_file) as fp:
-        lines = fp.readlines()
-    
+        sentences = fp.readlines()
+    with open(syntree_file_gold, 'rb') as fp:
+        syntrees = pd.read_pickle(fp)
+    syntree_balanced_idx_list = []
 
     with open(ner_file_balanced, 'w') as file_ner:
 
-        for line in lines:
+        for idx, sentence in enumerate(sentences):
             #tokens_tags = line.split('\t')
 
             #print(tokens_tags)
             #tokens_sentence = tokens_tags[0]
-            tokens_tags = [x.split() for x in line.split("\t")]
+            tokens_tags = [x.split() for x in sentence.split("\t")]
 
             write_sentence = True
 
@@ -81,8 +92,19 @@ def DiscardFromNERFile(ner_file, discard_sentences_ratio = 0.25, discard_ne_rati
             if write_sentence == True:
                 written_sentences = written_sentences+1
                 written_ne_tags = written_ne_tags+ne_tags
-                file_ner.write(line)
-                #file_ner.write("\n")
+                file_ner.write(sentence)
+                syntree_balanced_idx_list.append(idx)
+
+            
+    balanced_syntrees = [x for idx, x in enumerate(syntrees) if idx in syntree_balanced_idx_list]
+
+    # Save list of balanced syntrees
+    dirname = os.path.dirname(syntree_file_gold_balanced)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+    with open(syntree_file_gold_balanced, 'wb') as handle:
+        pickle.dump(balanced_syntrees, handle)    
 
     return written_sentences, written_ne_tags
 
@@ -204,10 +226,10 @@ data_path = "./data/ud/"
 # Files in data folder to ignore
 skip_files = ["./data/ud/testdata/*"]
 #files = glob.iglob(data_path + '**/en_gum-ud-test-bert-base-cased.txt', recursive=True)
-files = glob.iglob(data_path+"**/ner/*-test*orig.ner")
+files = glob.iglob(data_path+"**/ner/*-test-*-cased-orig.ner")
 files = [f for f in files if all(sf not in f for sf in skip_files)]
 
-mode = "DISCARD"
+mode = "BALANCE"
 
 if(mode == "CREATE"):
     # load tagger
@@ -223,16 +245,16 @@ elif (mode == "CONVERT"):
     for manual_ner_file in files:
         ConvertManuallyCorrectedNERFile(manual_ner_file)
 
-elif (mode == "DISCARD"):
-    #discard_sentences_ratio = 0.25
-    #discard_ne_ratio = 0.45
-    discard_sentences_ratio = 0.0
-    discard_ne_ratio = 0.0
+elif (mode == "BALANCE"):
+    discard_sentences_ratio = 0.25
+    discard_ne_ratio = 0.45
+    #discard_sentences_ratio = 0.0
+    #discard_ne_ratio = 0.0
     total_sentences = 0
     total_ne_tags = 0
     for ner_file in files:
         print(ner_file)
-        written_sentences, written_ne_tags = DiscardFromNERFile(ner_file, discard_sentences_ratio=discard_sentences_ratio, discard_ne_ratio=discard_ne_ratio)
+        written_sentences, written_ne_tags = BalanceNERFile(ner_file, discard_sentences_ratio=discard_sentences_ratio, discard_ne_ratio=discard_ne_ratio)
         print(f"Sentences: {written_sentences}")
         print(f"NE tags: {written_ne_tags}")
 

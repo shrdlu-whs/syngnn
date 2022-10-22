@@ -1,7 +1,5 @@
 # %%
 from transformers import BertTokenizer, BertForMaskedLM, BertForTokenClassification, BertConfig, BertModel
-import dgl
-from dgl.nn.pytorch.conv import EGATConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
