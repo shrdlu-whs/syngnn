@@ -9,6 +9,7 @@ import os
 import glob
 import re
 import torch
+import random
 
 # Export env vars to limit number of threads to use
 num_threads = str(12)
@@ -30,6 +31,61 @@ print(f"PID: {PID}, PGID: {PGID}")
 
 # Only use CPU, hide GPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+def DiscardFromNERFile(ner_file, discard_sentences_ratio = 0.25, discard_ne_ratio = 0.45):
+
+    # Save number of written senteces and NE tags
+    written_sentences = 0
+    written_ne_tags = 0
+
+    ner_file = os.path.abspath(ner_file)
+    filename = os.path.basename(ner_file)
+    print(filename)
+    ner_file_balanced = ner_file.replace("orig", "orig-balanced")
+    with open(ner_file) as fp:
+        lines = fp.readlines()
+    
+
+    with open(ner_file_balanced, 'w') as file_ner:
+
+        for line in lines:
+            #tokens_tags = line.split('\t')
+
+            #print(tokens_tags)
+            #tokens_sentence = tokens_tags[0]
+            tokens_tags = [x.split() for x in line.split("\t")]
+
+            write_sentence = True
+
+            ne_tags = 0
+            random_number = random.uniform(0,1)
+            # Check if sentence contains NE tags
+            for token_tag_pair in tokens_tags:
+                if token_tag_pair == []:
+                    continue
+                ne_tag = token_tag_pair[1]
+                
+                if ne_tag != "O":
+                    # Count only single tokens and beginnings of words to get tag count
+                    if ne_tag.find("S-") != -1:
+                        ne_tags = ne_tags+1
+                    if ne_tag.find("B-") != -1:
+                        ne_tags = ne_tags+1
+            # Sentences contains no NE: discard according to discard sentences ratio
+            if ne_tags == 0 and random_number < discard_sentences_ratio:
+                write_sentence = False
+            # # Sentence contains NE: discard according to discard NE ratio
+            if ne_tags > 0 and random_number < discard_ne_ratio:
+                write_sentence = False
+
+            if write_sentence == True:
+                written_sentences = written_sentences+1
+                written_ne_tags = written_ne_tags+ne_tags
+                file_ner.write(line)
+                #file_ner.write("\n")
+
+    return written_sentences, written_ne_tags
+
 
 def ConvertManuallyCorrectedNERFile(manual_ner_file):
 
@@ -73,53 +129,85 @@ def ConvertManuallyCorrectedNERFile(manual_ner_file):
                 token_ner_list[token_idx] = ner_label
 
 
-def CreateNERLabelsFromDataset(file, tagger):
+def CreateNERLabelsFromDataset(file, tagger, balance_dataset = False, discard_sentences_ratio = 0.25, discard_ne_ratio = 0.45):
 
     ud_file = os.path.abspath(file)
     filename = os.path.basename(ud_file)
     print(filename)
     with open(ud_file) as fp:
         lines = fp.readlines()
+        print(f"Number of sentences: {len(lines)}")
     
     # Save NER tags
     dirname = os.path.dirname(ud_file)
     dirname = dirname + "/ner/"
 
+    # Save number of written senteces and NE tags
+    written_sentences = 0
+    written_ne_tags = 0
+
     if not os.path.exists(dirname):
         os.makedirs(dirname)
 
     ner_filepath = os.path.join(dirname, filename)
-    filename_ner = ner_filepath.split(".")[0] + "-orig.ner"
-    filename_manual_ner = ner_filepath.split(".")[0] + "-manual.ner"
+    if balance_dataset == True:
+        filename_ner = ner_filepath.split(".")[0] + "-orig-balanced.ner"
+        filename_manual_ner = ner_filepath.split(".")[0] + "-manual-balanced.ner"
+    else:
+        filename_ner = ner_filepath.split(".")[0] + "-orig.ner"
+        filename_manual_ner = ner_filepath.split(".")[0] + "-manual.ner"
     with open(filename_ner, 'w') as file_ner:
         with open(filename_manual_ner, 'a') as file_manual_ner:
+            
             for idx, sentence in enumerate(lines):
                 # Write sentence to file for manual correction
                 sentence = Sentence(sentence)
                 # predict NER tags
                 tagger.predict(sentence, force_token_predictions=True)
 
-                file_manual_ner.write("Sentence: ")
-                # Write BIOES NER tags to file
-                for token in sentence.tokens:
-                    file_ner.write(token.text + " " + token.get_label().value+"\t")
-                    file_manual_ner.write(token.text + " ")
-                file_ner.write("\n")
-                file_manual_ner.write("\n")
+                write_sentence = True
+                if balance_dataset == True:
 
-                # Write identified NER tags to file for manual correction
-                for label in sentence.get_labels('ner'):
-                     file_manual_ner.write(str(label) +"\n")
+                    ne_tags = 0
+                    random_number = random.uniform(0,1)
+                    # Check if sentence contains NE tags
+                    for token in sentence.tokens:
+                        if token.get_label().value != "0":
+                            ne_tags = ne_tags+1
+                    # Sentences contains no NE: discard according to discard sentences ratio
+                    if ne_tags == 0 and random_number < discard_sentences_ratio:
+                        write_sentence = False
+                    # Sentence contains NE: discard according to discard NE ratio
+                    if ne_tags > 0 and random_number < discard_ne_ratio:
+                        write_sentence = False
+
+                if write_sentence == True:
+                    written_sentences = written_sentences+1
+                    written_ne_tags = written_ne_tags+ne_tags
+                    file_manual_ner.write("Sentence: ")
+                    # Write BIOES NER tags to file
+                    for token in sentence.tokens:
+                        file_ner.write(token.text + " " + token.get_label().value+"\t")
+                        file_manual_ner.write(token.text + " ")
+                    file_ner.write("\n")
+                    file_manual_ner.write("\n")
+
+                    # Write identified NER tags to file for manual correction
+                    for label in sentence.get_labels('ner'):
+                        file_manual_ner.write(str(label) +"\n")
+                
+            return written_sentences, written_ne_tags
 
 
 # Load text files
-data_path = "./data/test_sample/ice-gb/"
+data_path = "./data/ud/"
 # Files in data folder to ignore
-skip_files = []
-files = glob.iglob(data_path + '**/*-gen-*.txt', recursive=True)
+skip_files = ["./data/ud/testdata/*"]
+#files = glob.iglob(data_path + '**/en_gum-ud-test-bert-base-cased.txt', recursive=True)
+files = glob.iglob(data_path+"**/ner/*-test*orig.ner")
 files = [f for f in files if all(sf not in f for sf in skip_files)]
 
-mode = "CREATE"
+mode = "DISCARD"
 
 if(mode == "CREATE"):
     # load tagger
@@ -127,12 +215,31 @@ if(mode == "CREATE"):
     print(tagger.label_dictionary)
     for ud_file in files:
 
-        CreateNERLabelsFromDataset(ud_file, tagger)
+        written_sentences, written_ne_tags = CreateNERLabelsFromDataset(ud_file, tagger, balance_dataset=True)
+
+
 
 elif (mode == "CONVERT"):
     for manual_ner_file in files:
         ConvertManuallyCorrectedNERFile(manual_ner_file)
 
-       
+elif (mode == "DISCARD"):
+    #discard_sentences_ratio = 0.25
+    #discard_ne_ratio = 0.45
+    discard_sentences_ratio = 0.0
+    discard_ne_ratio = 0.0
+    total_sentences = 0
+    total_ne_tags = 0
+    for ner_file in files:
+        print(ner_file)
+        written_sentences, written_ne_tags = DiscardFromNERFile(ner_file, discard_sentences_ratio=discard_sentences_ratio, discard_ne_ratio=discard_ne_ratio)
+        print(f"Sentences: {written_sentences}")
+        print(f"NE tags: {written_ne_tags}")
+
+        total_sentences = total_sentences+written_sentences
+        total_ne_tags = total_ne_tags+written_ne_tags
+
+    print(f"Total Sentences: {total_sentences}")
+    print(f"Total NE tags: {total_ne_tags}")
     
     

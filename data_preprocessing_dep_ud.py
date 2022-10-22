@@ -32,7 +32,7 @@ import utilities_data_preprocessing as utils
 importlib.reload(utils)
 
 # Select number of threads to use
-num_threads = "2"
+num_threads = "4"
 os.environ["OMP_NUM_THREADS"] = num_threads # export OMP_NUM_THREADS=1
 os.environ["OPENBLAS_NUM_THREADS"] = num_threads # export OPENBLAS_NUM_THREADS=1
 os.environ["MKL_NUM_THREADS"] = num_threads # export MKL_NUM_THREADS=1
@@ -48,7 +48,7 @@ print(f"PID: {PID}, PGID: {PGID}", flush=True)
 data_path_dev = "./data/original/ud/UD_English-GUM/"
 data_path = "./data/original/ud/UD_English-GUM"
 # BERT tokenizer to use:
-tokenizer_name = 'bert-base-uncased'
+tokenizer_name = 'bert-base-cased'
 # Set of syntactic universal dependency tags
 dependency_tags = ["-","sub","root","punct","dep","nsubj","nsubj:pass","nsubj:outer","obj","iobj","csubj","csubj:pass","csubj:outer","ccomp","xcomp","nummod","appos","nmod","nmod:npmod","nmod:tmod","nmod:poss","acl","acl:relcl","amod","det","det:predet","case","obl","obl:npmod","obl:tmod","advcl","advmod","compound","compound:prt","fixed","flat","flat:foreign","goeswith","vocative","discourse","expl","aux","aux:pass","cop","mark","conj","cc","cc:preconj","parataxis","list","dislocated","orphan","reparandum", "obl:agent"]
 # Universal dependencies Part of Speech tags
@@ -113,7 +113,7 @@ def create_networkx_node_attributes(node_attributes, node_idx_list):
 
   return node_attrs_networkx
 
-
+# Save Pytorch Geometric Data object as png image
 def save_pygeom_graph_image(data, filename):
 
     sentenceIdx = sentence_idx + 1
@@ -143,15 +143,17 @@ def save_pygeom_graph_image(data, filename):
     pos_attrs = {}
     for node, coords in layout.items():
       token_length = len(node_attrs_networkx[node])
-      offset = 26 -token_length^2
+      #offset_1 = 26 -token_length^2
+      #offset_2 = 2
+      offset_1 = 0
+      offset_2 = 0
+      pos_attrs[node] = (coords[0] -offset_1, coords[1] - offset_2)
 
-      pos_attrs[node] = (coords[0] -offset, coords[1] - 2)
-
-    nx.draw(graph, layout, arrows=False, with_labels=False)
+    nx.draw(graph, layout, arrows=False, with_labels=False, node_color='#d6f4fb', node_size=200)
     nx.draw_networkx_labels(graph, pos_attrs, labels=node_attrs_networkx, font_size = 9)
     nx.draw_networkx_edges(graph, pos = layout)
 
-    nx.draw_networkx_edge_labels(graph, pos = layout, edge_labels=edge_attrs_networkx)
+    nx.draw_networkx_edge_labels(graph, pos = layout, edge_labels=edge_attrs_networkx, font_size=8)
     plt.savefig(filepath_png)
     plt.clf()
     # Remove dot file
@@ -428,7 +430,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
 
     x = torch.tensor(ids_graph_tokenized_padded, dtype=torch.long)
     data = Data(x=x,edge_index=edge_index, edge_attr=edge_attrs)
-    #if (sentence_idx not in unresolved_sentences):
+
     if (sentence_idx not in unresolved_sentences):
       syntax_graphs.append([data, sentence_graph_idx_map])
       if (len(words_graph_tokenized)-1 != len(words_sentence_tokenized)):
@@ -439,27 +441,8 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
         print(words_graph)
         #print(words_sentence_processed)
 
-    if( sentence_idx <= 5):
+    if( sentence_idx <= 7):
       save_pygeom_graph_image(data, filename.split(".")[0])
-
-    if (sentence_graph_idx_map == {0: 15, 1: 3, 2: 2, 3: 5, 4: 6, 5: 4, 6: 8, 7: 10, 8: 9, 9: 7, 10: 89, 11: 11, 12: 12, 13: 13, 14: 90, 15: 1, 16: 16, 17: 14, 18: 18, 19: 17, 20: 20, 21: 21, 22: 22, 23: 19, 24: 24, 25: 25, 26: 23, 27: 27, 28: 26, 29: 29, 30: 30, 31: 28, 32: 32, 33: 33, 34: 34, 35: 31, 36: 36, 37: 37, 38: 38, 39: 39, 40: 35, 41: 41, 42: 40, 43: 88, 44: 42, 45: 44, 46: 45, 47: 47, 48: 46, 49: 48, 50: 43, 51: 50, 52: 49, 53: 52, 54: 53, 55: 54, 56: 51, 57: 56, 58: 57, 59: 55, 60: 59, 61: 60, 62: 58, 63: 92, 64: 93, 65: 94, 66: 62, 67: 61, 68: 95, 69: 65, 70: 64, 71: 67, 72: 66, 73: 68, 74: 63, 75: 96, 76: 70, 77: 71, 78: 72, 79: 69, 80: 73, 81: 81, 82: 80, 83: 75, 84: 84, 85: 85, 86: 82, 87: 79, 88: 86, 89: 83, 90: 76, 91: 77, 92: 74, 93: 87, 94: 78, 95: 91}):
-        print("Sentence for mapping:")
-        print(words_graph_tokenized)
-        print(words_sentence_tokenized)
-
-    """if (raw_sentence.find("Finally, findings on enjambment") != -1):
-      print_graph=True
-      print(words_sentence_processed)
-      print(words_sentence_temp)
-      print(words_graph)
-      print(words_graph_tokenized)
-      print(tokenizer.tokenize("diachronic"))
-      test = ['root', 'discussed', 'Finally', ',', 'findings', 'enjambment', 'on', 'corpus', 'in', 'our', 'diachronic', 'sonnet', 'are', '.']
-      tokenized = []
-      for word in test:
-        tokenized_word = tokenizer.tokenize(word)
-        tokenized.extend(tokenized_word)
-      print(tokenized)"""
     
     if( print_graph ):
       #print(raw_sentence)
@@ -474,7 +457,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
   print(f"Num syntax graphs created: {len(syntax_graphs)}")
   print(f"Num processed sentences: {len(processed_sentences)}")
   # Save processed corpus text
-  filename_text = ud_file.split(".")[0] + f"-{tokenizer_name}-{syntree_mode}.txt"
+  filename_text = ud_file.split(".")[0] + f"-{tokenizer_name}.txt"
   filename_text = filename_text.replace("original/","")
 
   dirname = os.path.dirname(filename_text)
@@ -485,7 +468,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     output.write("\n".join(processed_sentences))
 
   # Save list of Pytorch geometric data objects
-  filename_syntree = filename_text.split(".")[0] + f".syntree"
+  filename_syntree = filename_text.split(".")[0] + f"-{syntree_mode}.syntree"
 
   dirname = os.path.dirname(filename_syntree)
   if not os.path.exists(dirname):

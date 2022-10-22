@@ -35,18 +35,18 @@ PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
 
 # BERT tokenizer to use:
-tokenizer_name = 'bert-base-uncased'
+tokenizer_name = 'bert-base-cased'
 print(f"Tokenizer: {tokenizer_name}")
 tokenizer = BertTokenizer.from_pretrained(tokenizer_name)
 
 # build the Pytorch geometric graphs from gold standard hand-annotated syntax trees
 #mode = "GOLD"
 # Generate syntax trees for text files automatically with Spacy and Berkeley Nueral Parser
-mode = "GEN"
+mode = "GOLD"
 
 if mode == "GOLD":
-    data_path = "./data/original/ice-gb"
-    data_path = data_path + '**/*.tre'
+    data_path = "./data/original/test_sample/ice-gb"
+    data_path = data_path + '**/*letters.tre'
     encoding = 'cp1252'
     # Number of lines or -1 for all lines
     num_lines = -1
@@ -353,6 +353,70 @@ class Node:
             return key
 
 # %%
+# Load networkx
+import networkx as nx
+from networkx.drawing.nx_agraph import graphviz_layout
+# Load matplotlib.pyplot
+import matplotlib.pyplot as plt
+def create_networkx_node_attributes(node_attributes, node_idx_list,encoder=None):
+  node_attrs_networkx = {}
+  #print(node_attributes)
+  for idx, node_attr in enumerate(node_attributes):
+    # Get node index from list
+    node_idx = node_idx_list[idx]
+    # Add label to list
+    if isinstance(node_attr,int):
+        node_label = tokenizer.convert_ids_to_tokens([node_attr])[0]
+    elif isinstance(node_attr,str):
+       
+        node_label = node_attr
+        #print(node_label)
+    node_attrs_networkx[node_idx] = node_label
+
+  return node_attrs_networkx
+
+# Save Pytorch Geometric Data object as png image
+def save_pygeom_graph_image(data, filename, sentence_idx,node_attr_list=None):
+
+    sentenceIdx = sentence_idx + 1
+
+    graph = tg_utils.to_networkx(data)
+    # Create depth-first tree from graph
+    #graph = nx.dfs_tree(graph, source=0)
+    idx_order = list(graph.nodes)
+    # Create networkx node labels with tokens
+    node_attrs_networkx = create_networkx_node_attributes(node_attr_list, idx_order)
+
+    dirname = os.path.dirname("./images/const_graphs/")
+    if not os.path.exists(dirname):
+      os.makedirs(dirname)
+    filename_dot = filename + str(sentenceIdx) + f"-{tokenizer_name}.dot"
+    filename_png = filename + str(sentenceIdx) + f"-{tokenizer_name}.png"
+    filepath_dot = os.path.join(dirname, filename_dot)
+    filepath_png =os.path.join(dirname, filename_png)
+
+    nx.nx_agraph.write_dot(graph, filepath_dot)
+    layout = graphviz_layout(graph, prog="dot")
+    pos_attrs = {}
+    for node, coords in layout.items():
+      token_length = len(node_attrs_networkx[node])
+      #offset_1 = 26 -token_length^2
+      #offset_2 = 2
+      offset_1 = 0
+      offset_2 = 0
+      pos_attrs[node] = (coords[0] -offset_1, coords[1] - offset_2)
+
+    nx.draw(graph, layout, arrows=False, with_labels=False, node_color='#d6f4fb', node_size=200)
+    nx.draw_networkx_labels(graph, pos_attrs, labels=node_attrs_networkx, font_size = 9)
+    nx.draw_networkx_edges(graph, pos = layout)
+
+    #nx.draw_networkx_edge_labels(graph, pos = layout, edge_labels=edge_attrs_networkx, font_size=8)
+    plt.savefig(filepath_png)
+    plt.clf()
+    # Remove dot file
+    os.remove(filepath_dot)
+    print(filepath_png)
+# %%
 # Create One-Hot Encoders from data
 for filename in glob.iglob(data_path, recursive=True):
 
@@ -473,12 +537,12 @@ for filename in glob.iglob(data_path, recursive=True):
 
         num_const_graph_nodes = len(constituency_tags_sentence)
         node_list, sentence_graph_idx_map, edges_start, edges_end = add_tokens_to_graph(constituency_tags_sentence, tokens_graph, edges_start, edges_end)
-        '''print("--------------")
+        print("--------------")
         print(node_list)
         print(sentence_graph_idx_map)
         print(edges_start)
         print(edges_end)
-        print(sentence_graph_idx_map)'''
+        print(sentence_graph_idx_map)
         # For gold constituency tags: add constituency attributes to node features
         # Optional, standard gold constituency trees consist of const_labels only
         #if mode == "GOLD":
@@ -492,14 +556,10 @@ for filename in glob.iglob(data_path, recursive=True):
         x = torch.tensor(np.array(node_index), dtype=torch.long)
         data = Data(x=x,edge_index=edge_index)
         
-        if len(sentence_graph_idx_map) == 0:
-            print("No tokens found")
-            print(data)
-            print(words_sentence)
-        else:
-
-            syntax_graphs.append([data, sentence_graph_idx_map])
-            raw_sentences.append(" ".join(words_sentence))
+        if (sent_idx <=25):
+            mode_name = mode.lower()
+            filename = ice_filename+f"-{mode_name}"
+            save_pygeom_graph_image(data,filename,sent_idx,node_list)
 
         
         #print(tokens_graph)
@@ -509,6 +569,17 @@ for filename in glob.iglob(data_path, recursive=True):
     filename = ice_filepath.split(".")[0]
     filename = filename.replace("original/","")
     mode_name = mode.lower()
+
+
+
+    if len(sentence_graph_idx_map) == 0:
+            print("No tokens found")
+            print(data)
+            print(words_sentence)
+    else:
+
+        syntax_graphs.append([data, sentence_graph_idx_map])
+        raw_sentences.append(" ".join(words_sentence))
 
     if mode == "GOLD":
         filename_text_train = filename + f"-train-{tokenizer_name}.txt"

@@ -9,8 +9,8 @@ saved_models = [
     "./trained_models/ner/bert/dep/ner_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0", #2 Bert cased trained with dependency tree data
     "./trained_models/ner/bert/dep/09_21_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0", #3 Bert uncased trained with dependency tree data
     "./trained_models/ner/bert/const/09_27_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0", #4 Bert cased trained with const tree data
-    "./trained_models/ner/bert/const/09_28_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0" #5 Bert uncased trained with const tree data
-    "./trained_models/ner/bert/ner_bert-base-cased_E2_batches2_LR2e-05_SL96_GN0-0_0", #6 Sample config for testing
+    "./trained_models/ner/bert/const/09_28_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0", #5 Bert uncased trained with const tree data
+    "./trained_models/ner/bert/ner_bert-base-cased_E2_batches2_LR2e-05_SL96_GN0-0_0" #6 Sample config for testing
 ]
 # %%
 label_weights_ud = []

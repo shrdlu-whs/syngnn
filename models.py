@@ -1,5 +1,7 @@
 # %%
 from transformers import BertTokenizer, BertForMaskedLM, BertForTokenClassification, BertConfig, BertModel
+import dgl
+from dgl.nn.pytorch.conv import EGATConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -105,7 +107,6 @@ class SynGNNLayer_EA(torch.nn.Module):
         super(SynGNNLayer_EA, self).__init__()
         # Graph attention sublayer
         self.graph_attn = tg_nn.GATv2Conv(in_channels=dim_in, out_channels=dim_in, heads=num_att_heads, edge_dim =dim_edge_attrs, concat=False).jittable()
-        #self.graph_attn = graph_attn.jittable('(Tuple[int,int], Tuple[int,int], int,int) -> Tensor')
         self.linear1 = tg_nn.Linear(dim_in, dim_feedforward)
         self.linear2 = tg_nn.Linear(dim_feedforward, dim_in)
 

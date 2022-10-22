@@ -151,3 +151,50 @@ def save_syntrees(syntax_graphs, filename):
         with open(filename, 'wb') as handle:
             pickle.dump(syntax_graphs, handle)
             handle.close
+
+#%%
+# Save Pytorch Geometric Data object as png image
+def save_pygeom_graph_image(data, filename):
+
+    sentenceIdx = sentence_idx + 1
+
+    graph = tg_utils.to_networkx(data)
+    # Create depth-first tree from graph
+    #graph = nx.dfs_tree(graph, source=0)
+    idx_order = list(graph.nodes)
+    # Create networkx node labels with tokens
+    node_attrs_networkx = create_networkx_node_attributes(data.x, idx_order)
+    #print(node_attrs_networkx)
+    #nx.set_node_attributes(graph, node_attrs_networkx)
+    # Create networkx edge attributes with dependency relations
+    edge_attrs_networkx = create_networkx_edge_attributes(data.edge_attr, data.edge_index, dependency_tags, idx_order)
+    #nx.set_edge_attributes(graph, edge_attrs_networkx)
+
+    dirname = os.path.dirname("./images/ud_graphs/")
+    if not os.path.exists(dirname):
+      os.makedirs(dirname)
+    filename_dot = filename + str(sentenceIdx) + f"-{tokenizer_name}.dot"
+    filename_png = filename + str(sentenceIdx) + f"-{tokenizer_name}.png"
+    filepath_dot = os.path.join(dirname, filename_dot)
+    filepath_png =os.path.join(dirname, filename_png)
+
+    nx.nx_agraph.write_dot(graph, filepath_dot)
+    layout = graphviz_layout(graph, prog="dot")
+    pos_attrs = {}
+    for node, coords in layout.items():
+      token_length = len(node_attrs_networkx[node])
+      #offset_1 = 26 -token_length^2
+      #offset_2 = 2
+      offset_1 = 0
+      offset_2 = 0
+      pos_attrs[node] = (coords[0] -offset_1, coords[1] - offset_2)
+
+    nx.draw(graph, layout, arrows=False, with_labels=False, node_color='#d6f4fb', node_size=200)
+    nx.draw_networkx_labels(graph, pos_attrs, labels=node_attrs_networkx, font_size = 9)
+    nx.draw_networkx_edges(graph, pos = layout)
+
+    nx.draw_networkx_edge_labels(graph, pos = layout, edge_labels=edge_attrs_networkx, font_size=8)
+    plt.savefig(filepath_png)
+    plt.clf()
+    # Remove dot file
+    os.remove(filepath_dot)
