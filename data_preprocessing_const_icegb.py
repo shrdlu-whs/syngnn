@@ -40,18 +40,18 @@ print(f"Tokenizer: {tokenizer_name}")
 tokenizer = BertTokenizer.from_pretrained(tokenizer_name)
 
 # build the Pytorch geometric graphs from gold standard hand-annotated syntax trees
-#mode = "GOLD"
-# Generate syntax trees for text files automatically with Spacy and Berkeley Nueral Parser
 mode = "GOLD"
+# Generate syntax trees for text files automatically with Spacy and Berkeley Nueral Parser
+#mode = "GEN"
 
 if mode == "GOLD":
-    data_path = "./data/original/test_sample/ice-gb"
-    data_path = data_path + '**/*letters.tre'
+    data_path = "./data_sample/original/ice-gb/"
+    data_path = data_path + '**/*.tre'
     encoding = 'cp1252'
     # Number of lines or -1 for all lines
     num_lines = -1
 elif mode == "GEN":
-    data_path = "./data/test_sample/ice-gb/"
+    data_path = "./data_sample/ice-gb/"
     data_path = data_path + f"**/*-gold-*-{tokenizer_name}.txt"
     encoding = 'utf-8'
     # Number of lines or -1 for all lines

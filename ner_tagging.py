@@ -39,8 +39,6 @@ def BalanceNERFile(ner_file, discard_sentences_ratio = 0.25, discard_ne_ratio = 
     # Extract syntree filepaths
     syntree_file_gold = ner_file.replace("ner/","").replace("-orig.ner","-gold.syntree")
     syntree_file_gold_balanced = ner_file.replace("ner/","").replace("-orig.ner","-gold-balanced.syntree")
-    print(syntree_file_gold)
-    print(syntree_file_gold_balanced)
 
     # Save number of written senteces and NE tags
     written_sentences = 0
@@ -222,14 +220,14 @@ def CreateNERLabelsFromDataset(file, tagger, balance_dataset = False, discard_se
 
 
 # Load text files
-data_path = "./data/ud/"
+data_path = "./data_sample/ud/"
 # Files in data folder to ignore
-skip_files = ["./data/ud/testdata/*"]
+skip_files = [""]
 #files = glob.iglob(data_path + '**/en_gum-ud-test-bert-base-cased.txt', recursive=True)
-files = glob.iglob(data_path+"**/ner/*-test-*-cased-orig.ner")
+files = glob.iglob(data_path+"**/ner/*.ner")
 files = [f for f in files if all(sf not in f for sf in skip_files)]
 
-mode = "BALANCE"
+mode = "CREATE"
 
 if(mode == "CREATE"):
     # load tagger
@@ -246,8 +244,8 @@ elif (mode == "CONVERT"):
         ConvertManuallyCorrectedNERFile(manual_ner_file)
 
 elif (mode == "BALANCE"):
-    discard_sentences_ratio = 0.25
-    discard_ne_ratio = 0.45
+    discard_sentences_ratio = 0.04
+    discard_ne_ratio = 0.495
     #discard_sentences_ratio = 0.0
     #discard_ne_ratio = 0.0
     total_sentences = 0

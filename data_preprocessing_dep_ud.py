@@ -45,8 +45,8 @@ torch.set_num_threads = int(num_threads)
 PID = os.getpid()
 PGID = os.getpgid(PID)
 print(f"PID: {PID}, PGID: {PGID}", flush=True)
-data_path_dev = "./data/original/ud/UD_English-GUM/"
-data_path = "./data/original/ud/UD_English-GUM"
+data_path_dev = "./data_sample/original/ud/"
+data_path = "./data_sample/original/ud/"
 # BERT tokenizer to use:
 tokenizer_name = 'bert-base-cased'
 # Set of syntactic universal dependency tags
@@ -278,11 +278,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     for word in raw_sentence.split(" "):
       #print(tokenizer.tokenize(word))
       words_sentence_tokenized.extend(tokenizer.tokenize(word))
-      #print(words_sentence_tokenized)
-
-    #if (raw_sentence.find("Finally, findings on enjambment") != -1):
-    #  print(words_graph_tokenized)
-    #  print(words_sentence_tokenized)
     
     # If sentence and graph match: do not continue further processing
     if (len(words_graph_tokenized) == len(words_sentence_tokenized)+1):
@@ -295,102 +290,7 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       count_graph_sentence_discrepancy = count_graph_sentence_discrepancy+1
       words_sentence_tokenized = []
       continue
-      ###############################################################
-      # Start graph to sentence alignment
-      # Process raw sentence
-      # Align split words in graph (e.g. negative modals) with raw sentence - for example convert wasn't to was n't
-      words_sentence = word_tokenize(raw_sentence)
-      #words_sentence = raw_sentence.split(" ")
-      words_sentence_temp = words_sentence.copy()
-
-      insertion_count = 0
-      for word_idx, word in enumerate(words_sentence):
-
-        if (word == "''" or word == "``"):
-          words_sentence_temp[word_idx] = '"'
-        if (word.find("-",1) == -1 or word == "--"):
-          continue
-  
-        # Check if word exists in graph
-        if word in words_graph:
-            continue
-        words_sentence_temp.pop(word_idx+insertion_count)
-        insertion_count = insertion_count-1
-        split_word = word.split("-")
-
-        for sub_idx, substring in enumerate(split_word):
-            words_sentence_temp.insert(word_idx+insertion_count, substring)
-            insertion_count = insertion_count+1
-            if (sub_idx != len(split_word)-1):
-              words_sentence_temp.insert(word_idx+insertion_count, "-")
-              insertion_count = insertion_count+1
-
-      # Copy graph words w/o root node
-      words_graph_temp = words_graph.copy()[1:]
-      # Copy tokenized sentences
-      words_sentence_processed = words_sentence_temp.copy()
       
-      words_sentence_temp, words_graph_temp, remaining_tokens_sentence_idx, remaining_tokens_graph_idx = utils.compare_sentence_to_graph(words_sentence_temp, words_graph_temp)
-      joined_strings_sentence, joined_strings_sentence_index_list = utils.join_consecutive_tokens(words_sentence_temp, remaining_tokens_sentence_idx)
-      joined_strings_graph, joined_strings_graph_index_list = utils.join_consecutive_tokens(words_graph_temp, remaining_tokens_graph_idx)
-
-      insertion_count = 0 
-      for list_idx_sentence, joined_string_sentence in enumerate(joined_strings_sentence):
-
-        if ( sentence_idx == 531):
-          print("looping through joined strings")
-
-        # Check if joined string exists in graph
-        try:
-          list_idx_graph = joined_strings_graph.index(joined_string_sentence)
-        except:
-          continue
-
-        if (list_idx_graph >=0):
-          joined_string_graph = joined_strings_graph[list_idx_graph]
-          onestring_indices_graph = joined_strings_graph_index_list[list_idx_graph]
-          onestring_indices_sentence = joined_strings_sentence_index_list[list_idx_sentence]
-
-          # get position for delete and insert in words_sentence_temp
-          position_delete = onestring_indices_sentence[0]
-          len_onestring_indices_sentence = len(onestring_indices_sentence)
-          for pos_idx in range(len_onestring_indices_sentence):
-            try:
-              words_sentence_temp.pop(position_delete)
-              words_sentence_processed.pop(position_delete)
-            except:
-              #print(f"Index error at: {raw_sentence}. Ignoring sentence.")
-              break
-
-            joined_strings_sentence_index_list = utils.shift_token_indices_in_list_of_index_lists( joined_strings_sentence_index_list, position_delete, -1)
-
-          position_insert = position_delete
-          for pos_idx in onestring_indices_graph:
-            graph_token = words_graph_temp[pos_idx]
-            words_sentence_temp.insert(position_insert, graph_token)
-            words_sentence_processed.insert(position_insert, graph_token)
-            joined_strings_sentence_index_list = utils.shift_token_indices_in_list_of_index_lists( joined_strings_sentence_index_list, position_insert, 1)
-            position_insert = position_insert +1
-          
-      # Re-calculate amount of unmatching sentences and graphs
-      words_sentence_temp, words_graph_temp, remaining_tokens_sentence_idx, remaining_tokens_graph_idx = utils.compare_sentence_to_graph(words_sentence_temp, words_graph_temp)
-      if (len(set(words_graph_temp))>1 or len(set(words_sentence_temp))>1):
-        unresolved_sentences.append(sentence_idx)
-      
-        # Record unresolved sentence graph matchings
-        count_graph_sentence_discrepancy = count_graph_sentence_discrepancy+1
-
-      else:
-        # Add final graph-aligned sentence to processed sentences
-        processed_sentences.append(" ".join(words_sentence_processed))
-
-        # Tokenize sentence
-        for word in words_sentence_processed:
-          tokens = tokenizer.tokenize(word)
-        for token_idx,token in enumerate(tokens):
-            words_sentence_tokenized.append(token)
-
-
     ids_sentence_tokenized = tokenizer.convert_tokens_to_ids(words_sentence_tokenized)
 
     # Map sentence token ids to graph token ids
@@ -450,10 +350,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
       save_pygeom_graph_image(data, filename.split(".")[0])
       print_graph = False
     
-
-
-
- 
   print(f"Num syntax graphs created: {len(syntax_graphs)}")
   print(f"Num processed sentences: {len(processed_sentences)}")
   # Save processed corpus text
@@ -475,10 +371,6 @@ for ud_file in glob.iglob(data_path + '**/*.conllu', recursive=True):
     os.makedirs(dirname)
 
   with open(filename_syntree, 'wb') as handle:
-    #print(filename_syntree)
-    #print(syntax_graphs[0:5])
-    #print(ids_graph_tokenized_np)
-    #print(len(syntax_graphs))
     pickle.dump(syntax_graphs, handle)
   
 print(f"Ignored {count_graph_sentence_discrepancy} sentences because graph and sentence did not match")
