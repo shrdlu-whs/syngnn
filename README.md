@@ -3,13 +3,19 @@ This is the accompanying code for the thesis 'Comparison of dependency and const
 
 ## Installation
 To install, create a new Python environment using Python 3.8.10:
+```bash
 apt install python3.8-venv
 python3 -m venv ~/venv_syngnn
+```
 
 Next, install all requirements from the requirements file:
+```bash
 pip3 install -r requirements.txt
+```
 To be able to generate your own syntax graphs, also install the spaCy model for the English language:
+```bash
 python -m spacy download en_core_web_lg
+```
 
 ## Data
 There were two datasets used for the experiments:
@@ -22,15 +28,18 @@ Because of these restrictions, this repository only includes a sample from the U
 ## Data Preprocessing
 The UD dataset is given as *.conllu files containing the syntax graphs. To use the data for model training, the text and the syntax graphs will have to be extracted and stored as text and Pytorch Geometric graph structures.
 To do this, you can run data_preprocessing_dep_ud.py with:
+```bash
 ./run.sh preprocessing_ud
+```
 
 By default, this will process all conllu files available in the data_sample/original/ud/ folder and produce the following files from each file:
 * a text file containing all sentences
 * a *-gold.syntree file containing the Pytorch Geometric graphs and the token mapping from sentence to graph
 
 Likewise, the ICE-GB *.tre files can be processed by running:
+```bash
 ./run.sh preprocessing_ice
-
+```
 It is also possible to generate syntax graphs automatically from text files. 
 
 To successfully run the Named Entity Recognition task, we also need NE tags. These can be generated from the text files with:
@@ -41,10 +50,12 @@ This will produce the following files:
 
 ## Usage
 The main runfile for the models is "syngnn_main.ipynb". You can run the Notebook directly or use the headless server mode with:
+```bash
 ./run.sh syngnn
+```
 This will convert the Notebook to a Python file and save its output to a log file in logs/syngnn_main.log
 
-The runtime configuration is given by the config files "develop.csv" and "prod.csv". For more information on the config parameters available, see the [config_params_info.md](https://github.com/shrdlu-whs/syngnn/blob/master/config_params_info.md) file.
+The runtime configuration is given by the config files "develop.csv" and "prod.csv". For more information on the config parameters available, see the [config_params_info.md](https://github.com/shrdlu-whs/syngnn/blob/master/config/config_params_info.md) file.
 The results of the model run for each epoch are stored in the logs folder.
 The data collected by Tensorboard for the model run is stored in the runs folder.
 If the production configuration is active, the model is also saved in trained_models. This is currently only available, when training a baseline BERT model, SynGNN models cannot be stored.
