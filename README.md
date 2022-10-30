@@ -42,8 +42,10 @@ Likewise, the ICE-GB *.tre files can be processed by running:
 ```
 It is also possible to generate syntax graphs automatically from text files. 
 
-To successfully run the Named Entity Recognition task, we also need NE tags. These can be generated from the text files with:
+To successfully run the Named Entity Recognition task, we also need NE tags. These can be generated from the text files with running ner_tagging.py in CREATE mode:
+```bash
 ./run.sh nertagging
+```
 This will produce the following files:
 * a *-orig.ner file containing the generated NE tags
 * a *-manual.ner file containing the NE tags along with the sentence for a more-human readable format. This is meant to facilitate easy correction of wrong NE tags. These files can be converted to the model-compatible format by running ner_tagging.py in CONVERT mode.
