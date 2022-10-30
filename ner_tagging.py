@@ -162,10 +162,6 @@ def CreateNERLabelsFromDataset(file, tagger, balance_dataset = False, discard_se
     dirname = os.path.dirname(ud_file)
     dirname = dirname + "/ner/"
 
-    # Save number of written senteces and NE tags
-    written_sentences = 0
-    written_ne_tags = 0
-
     if not os.path.exists(dirname):
         os.makedirs(dirname)
 
@@ -185,57 +181,34 @@ def CreateNERLabelsFromDataset(file, tagger, balance_dataset = False, discard_se
                 # predict NER tags
                 tagger.predict(sentence, force_token_predictions=True)
 
-                write_sentence = True
-                if balance_dataset == True:
+                file_manual_ner.write("Sentence: ")
+                # Write BIOES NER tags to file
+                for token in sentence.tokens:
+                    file_ner.write(token.text + " " + token.get_label().value+"\t")
+                    file_manual_ner.write(token.text + " ")
+                file_ner.write("\n")
+                file_manual_ner.write("\n")
 
-                    ne_tags = 0
-                    random_number = random.uniform(0,1)
-                    # Check if sentence contains NE tags
-                    for token in sentence.tokens:
-                        if token.get_label().value != "0":
-                            ne_tags = ne_tags+1
-                    # Sentences contains no NE: discard according to discard sentences ratio
-                    if ne_tags == 0 and random_number < discard_sentences_ratio:
-                        write_sentence = False
-                    # Sentence contains NE: discard according to discard NE ratio
-                    if ne_tags > 0 and random_number < discard_ne_ratio:
-                        write_sentence = False
-
-                if write_sentence == True:
-                    written_sentences = written_sentences+1
-                    written_ne_tags = written_ne_tags+ne_tags
-                    file_manual_ner.write("Sentence: ")
-                    # Write BIOES NER tags to file
-                    for token in sentence.tokens:
-                        file_ner.write(token.text + " " + token.get_label().value+"\t")
-                        file_manual_ner.write(token.text + " ")
-                    file_ner.write("\n")
-                    file_manual_ner.write("\n")
-
-                    # Write identified NER tags to file for manual correction
-                    for label in sentence.get_labels('ner'):
-                        file_manual_ner.write(str(label) +"\n")
+                # Write identified NER tags to file for manual correction
+                for label in sentence.get_labels('ner'):
+                    file_manual_ner.write(str(label) +"\n")
                 
-            return written_sentences, written_ne_tags
 
 
 # Load text files
 data_path = "./data_sample/ud/"
 # Files in data folder to ignore
-skip_files = [""]
-#files = glob.iglob(data_path + '**/en_gum-ud-test-bert-base-cased.txt', recursive=True)
-files = glob.iglob(data_path+"**/ner/*.ner")
+skip_files = []
+files = glob.iglob(data_path+"**/*.txt")
 files = [f for f in files if all(sf not in f for sf in skip_files)]
-
+print(files)
 mode = "CREATE"
 
 if(mode == "CREATE"):
     # load tagger
     tagger = SequenceTagger.load("flair/ner-english-ontonotes-large")
-    print(tagger.label_dictionary)
     for ud_file in files:
-
-        written_sentences, written_ne_tags = CreateNERLabelsFromDataset(ud_file, tagger, balance_dataset=True)
+        CreateNERLabelsFromDataset(ud_file, tagger)
 
 
 
@@ -244,6 +217,7 @@ elif (mode == "CONVERT"):
         ConvertManuallyCorrectedNERFile(manual_ner_file)
 
 elif (mode == "BALANCE"):
+    files = glob.iglob(data_path+"**/ner/*.ner")
     discard_sentences_ratio = 0.04
     discard_ne_ratio = 0.495
     #discard_sentences_ratio = 0.0
