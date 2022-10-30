@@ -6,11 +6,14 @@ import os
 saved_models = [
     "bert-base-cased", #0
     "bert-base-uncased", #1
-    "./trained_models/ner/bert/dep/ner_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0", #2 Bert cased trained with dependency tree data
-    "./trained_models/ner/bert/dep/09_21_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0", #3 Bert uncased trained with dependency tree data
-    "./trained_models/ner/bert/const/09_27_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0", #4 Bert cased trained with const tree data
-    "./trained_models/ner/bert/const/09_28_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0", #5 Bert uncased trained with const tree data
-    "./trained_models/ner/bert/ner_bert-base-cased_E2_batches2_LR2e-05_SL96_GN0-0_0" #6 Sample config for testing
+    "shrdlu9/bert-base-cased-ud-NER" # 2 Bert cased trained with dependency tree 
+    "shrdlu9/bert-base-cased-ud-NER" # 3 Bert cased trained with dependency tree 
+    "./trained_models/ner/bert/dep/ner_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0", #4 Bert cased trained with dependency tree data
+    "./trained_models/ner/bert/dep/09_21_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0", #5 Bert uncased trained with dependency tree data
+    "./trained_models/ner/bert/const/09_27_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0", #6 Bert cased trained with const tree data
+    "./trained_models/ner/bert/const/09_28_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0", #7 Bert uncased trained with const tree data
+    "./trained_models/ner/bert/dep/10_23_bert-base-cased_E9_batches32_LR2e-05_SL96_GN0-0_LWFalse", #8 Bert cased trained with balanced dependency tree data
+    "./trained_models/ner/bert/dep/10_23_bert-base-uncased_E9_batches32_LR2e-05_SL96_GN0-0_LWFalse", #9 Bert uncased trained with balanced dependency tree data    
 ]
 # %%
 label_weights_ud = []
@@ -58,7 +61,7 @@ def configureParameters(parameters):
         except:
             print(f"Loading model from path {saved_model_path}")
         # Extract tokenizer from saved model path
-        if(len(saved_model_path.split("/")) > 1 ):
+        if(len(saved_model_path.split("/")) > 1 and saved_model_path.find("shrdlu9") == -1):
             transformer_name = saved_model_path.split("/")[-1]
             model_config = transformer_name.split("_")
             tokenizer = [item for item in model_config if item.startswith('bert')][0]
@@ -69,7 +72,12 @@ def configureParameters(parameters):
             else:
                 trained_epochs = 0
         else:
-            tokenizer = saved_model_path
+            if(saved_model_path.find("bert-base-cased") != -1):
+                tokenizer = "bert-base-cased"
+            elif (saved_model_path.find("bert-base-uncased") != -1):
+                tokenizer = "bert-base-uncased"
+            else:
+                tokenizer = "bert-base-cased"
             # sequence length norm parameter
             if( "seq_len" in parameters):
                 sequence_length = int(parameters["seq_len"])
