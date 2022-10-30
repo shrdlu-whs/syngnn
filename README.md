@@ -60,9 +60,10 @@ The results of the model run for each epoch are stored in the logs folder.
 The data collected by Tensorboard for the model run is stored in the runs folder.
 If the production configuration is active, the model is also saved in trained_models. This is currently only available when training a baseline BERT model, SynGNN models cannot be stored.
 
-The BERT models that were fine-tuned for the NER task on the full Universal Dependencies data for use in the experiments are available for download from the Hugging Face model repository:
+The BERT models that were fine-tuned for the NER task on the full Universal Dependencies data for use in the experiments are available for download from the Hugging Face model repository for this thesis:
 *  fine-tuned bert-base-cased: https://huggingface.co/shrdlu9/bert-base-cased-ud-NER
 *  fine-tuned bert-base-uncased: https://huggingface.co/shrdlu9/bert-base-cased-ud-NER
+<br>
 They can also be automatically loaded by specifying them as 'saved_model_path' in the config file.
 
 
